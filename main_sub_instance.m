@@ -27,11 +27,12 @@ else
     elemOverlap = nx;
 end
 
-% split alpha
-[alpha_subrange] = split_alpha(Nsteps, Nproblems, overlap, elemOverlap, nx, alfa_end, lap);
-% what is init_subrange used for ?
+%%%%% Load alpha_subrange
 alpha_subrange = alpha_subrange{ID_instance};
-[init_subrange] = split_init(alpha_subrange, guess, nx+1, nu);
+%%%%% Use initial guess from simulation
+if init_guess 
+    [init_subrange] = split_init(alpha_subrange, guess, nx, nx_full);
+end
 
 convergence = 0;
 problem = [];
@@ -59,7 +60,7 @@ load(sprintf('Temp//SubInstance_%i//pista.mat',ID_instance))
 [problem, problemData] = sub_opti_map(alpha_subrange,...
                                         pista,...
                                         overlap_tail, overlap_head,...
-                                        ID_instance, direct_c,...
+                                        ID_instance, d,...
                                         init_subrange,...
                                         IPOPT_opt);
 % save(sprintf('Temp//SubInstance_%i//longData.mat',ID_instance), 'problemData');

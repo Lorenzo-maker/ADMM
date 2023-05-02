@@ -1,4 +1,4 @@
-function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, overlap_tail, overlap_head, problem_number, direct_c, init_subrange, opts)
+function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, overlap_tail, overlap_head, problem_number, d, init_subrange, opts)
     
 % in this version we overlap only one set of states at the head and the
 % tail (no controls, no algebraic variables)
@@ -20,8 +20,6 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, over
     
     car_parameters_ocp;
     common_ocp;
-%     X_lb(1) = max(0,alfarange(1)-10*dalfa);
-%     X_ub(1) = min(alfa_end, alfarange(end)+10*dalfa);
 
     %% Import initial guess
     guess_0 = init_subrange;

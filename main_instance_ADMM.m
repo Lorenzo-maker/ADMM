@@ -22,8 +22,9 @@ import casadi.*
 
 %% Create track
 % pista = track_fun(1, '3D', 1, 'end', 700,'degree',4);
+warning off
 load('Data\pista_original_2.mat');
-
+warning on
 pista.residual;
 
 %pista = track2casadiSpline(pista);
@@ -35,14 +36,14 @@ save('Data\pista.mat', 'pista');
 %% load ADMM settings
 ADMM_batch_settings; % most of the settings are here (also IPopt options)
 
-if overlap >= 1 && overlap_control == true
-    elemOverlap = (overlap*(nx + nu + nz)+nx);
+if o > 0 
+    elemOverlap = (o*(nx + nu + nz)+nx);
 else
     elemOverlap = nx;
 end
 
 J0 = zeros(1, Nproblems);
-[alpha_subrange] = split_alpha(Nsteps, Nproblems, overlap, elemOverlap, nx, alfa_end, lap);
+[alpha_subrange] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap);
 
 % create problems
 problem = cell(Nproblems, 1);
@@ -263,20 +264,10 @@ while ~convergence % test di convergenza del consenso
             if ADMM_iteration == 2
                 RHO_tail(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
                 RHO_tail_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
-%                 RHO_tail(i) = J0(i).*2./vecnorm(X_overlap.*0+0.2).^2/rho_scale_tail; % error{i}
-%                 RHO_tail_0(i) = J0(i).*2./vecnorm(X_overlap.*0+0.2).^2/rho_scale_tail; % error{i}
             end
             
             if all(conv{i}) == false && ADMM_iteration > 1
                 RHO_tail(i) = updateRHO(RHO_tail(i), X_overlap, Z{i}, Zprevious{i}(end - elemOverlap + 1 : end),  Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
-%                 if mod(ADMM_iteration, mod_iter)
-%                     RHO_tail(i) = RHO_tail(i).*rho_increase;
-%                 else
-%                     RHO_tail(i) = RHO_tail(i).*rho_decrease;
-%                 end
-%                 if RHO_tail(i) > rho_max_factor*RHO_tail_0(i)
-%                     RHO_tail(i) = rho_max_factor*RHO_tail_0(i);
-%                 end
             end
             
             % aggiorno i moltiplicatori locali
@@ -304,20 +295,10 @@ while ~convergence % test di convergenza del consenso
             if ADMM_iteration == 2
                 RHO_head(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4   error{i}
                 RHO_head_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4  error{i}                 
-%                 RHO_head(i) = J0(i).*2./vecnorm(X_overlap.*0+0.2).^2/rho_scale_head;%/4   error{i}
-%                 RHO_head_0(i) = J0(i).*2./vecnorm(X_overlap.*0+0.2).^2/rho_scale_head;%/4  error{i} 
             end
             
             if all(conv{i}) == false && ADMM_iteration > 1
                 RHO_head(i) = updateRHO(RHO_head(i), X_overlap, Z{i}, Zprevious{i}(1:elemOverlap),  Y{i}(1:elemOverlap), ADMM_iteration);
-%                 if mod(ADMM_iteration, mod_iter)
-%                     RHO_head(i) = RHO_head(i).*rho_increase;
-%                 else
-%                     RHO_head(i) = RHO_head(i).*rho_decrease;
-%                 end
-%                 if RHO_head(i) > rho_max_factor*RHO_head_0(i)
-%                     RHO_head(i) = rho_max_factor*RHO_head_0(i);
-%                 end
             end
             
             % aggiorno i moltiplicatori locali
@@ -359,28 +340,11 @@ while ~convergence % test di convergenza del consenso
                 RHO_tail_0(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
                 RHO_head(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}
                 RHO_head_0(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}                
-%                 RHO_tail(i) = J0(i).*2./vecnorm(X_overlap(end/2+1:end).*0+0.2).^2/rho_scale_tail; % error{i}
-%                 RHO_tail_0(i) = J0(i).*2./vecnorm(X_overlap(end/2+1:end).*0+0.2).^2/rho_scale_tail; % error{i}
-%                 RHO_head(i) = J0(i).*2./vecnorm(X_overlap(1:end/2).*0+0.2).^2/rho_scale_head; % error{i}
-%                 RHO_head_0(i) = J0(i).*2./vecnorm(X_overlap(1:end/2).*0+0.2).^2/rho_scale_head; % error{i}
             end
             
             if all(conv{i}) == false && ADMM_iteration > 1
-                                RHO_head(i) = updateRHO(RHO_head(i), X_head, Zhead, Zprevious{i}(1:elemOverlap), Y{i}(1:elemOverlap), ADMM_iteration);
-                                RHO_tail(i) = updateRHO(RHO_tail(i), X_tail, Ztail, Zprevious{i}(end - elemOverlap + 1 : end), Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
-%                 if mod(ADMM_iteration, mod_iter)
-%                     RHO_head(i) = RHO_head(i).*rho_increase;
-%                     RHO_tail(i) = RHO_tail(i).*rho_increase;
-%                 else
-%                     RHO_head(i) = RHO_head(i).*rho_decrease;
-%                     RHO_tail(i) = RHO_tail(i).*rho_decrease;
-%                 end
-%                 if RHO_tail(i) > rho_max_factor*RHO_tail_0(i)
-%                     RHO_tail(i) = rho_max_factor*RHO_tail_0(i);
-%                 end
-%                 if RHO_head(i) > rho_max_factor*RHO_head_0(i)
-%                     RHO_head(i) = rho_max_factor*RHO_head_0(i);
-%                 end
+                RHO_head(i) = updateRHO(RHO_head(i), X_head, Zhead, Zprevious{i}(1:elemOverlap), Y{i}(1:elemOverlap), ADMM_iteration);
+                RHO_tail(i) = updateRHO(RHO_tail(i), X_tail, Ztail, Zprevious{i}(end - elemOverlap + 1 : end), Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
             end
             
             % aggiorno i moltiplicatori locali
