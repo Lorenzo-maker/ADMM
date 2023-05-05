@@ -1,7 +1,5 @@
-function init = split_init(alfarange, guess, nx, nx_full)
-    if abs(nx - nx_full) > 0
-        nx = nx_full;
-    end
+function init = split_init(alfarange, guess, nx)
+    nx = nx+1;
     init.index = [];
     for i = 1:length(alfarange)
         [~, index] = min(abs(guess.q(1:nx:end) - alfarange(i)));

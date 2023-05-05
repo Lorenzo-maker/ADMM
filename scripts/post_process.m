@@ -8,9 +8,9 @@ set(0,'defaultTextInterpreter','latex');
 alpha_vec2 = [];
 kk = 0;
 if Nproblems > 1
-    [index_consensus, index_end] = alphaSubToIndex(alpha_subrange, overlap, Nproblems, alfa_end, Nsteps+1);
+    %[index_consensus, index_end] = alphaSubToIndex(alpha_subrange, overlap, Nproblems, alfa_end, Nsteps+1);
     Nsteps_0 = Nsteps/lap;
-    [X_sol, U_sol, Z_sol] = denormalize_var_long(X, Nproblems, nx, nu, nz,  overlap, dalfa);
+    [X_sol, U_sol, Z_sol] = denormalize_var_long(X, Nproblems, nx, nu, nz, id);
     if lap > 1
         alpha_vec_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
         alpha_vec = repmat(alpha_vec_lap(1:end-1), 1, lap-1);
@@ -25,7 +25,7 @@ if Nproblems > 1
         alpha_vec2 = alpha_vec;
     end
     %alpha_vec = linspace(0, alfa_end, Nsteps+1);
-    X_sol = [alpha_vec; X_sol].*X_scale;
+    X_sol = [alpha_vec; X_sol].*[1;X_scale];
     U_sol = U_sol.*U_scale;
     Z_sol = Z_sol.*Z_scale;
 else
@@ -79,20 +79,41 @@ for i = 1:length(labels)-1
     hold(ax, 'on');
     if i <= nx % plot states
         plot(ax, alpha_vec2, X_sol(i+1, :), 'color', 'k', 'linewidth', 1.4);
-        for j = 1:length(index_consensus)
-            plot(ax, alpha_vec2(index_consensus(j)),  X_sol(i+1, index_consensus(j)), 'marker', 'o', 'color', 'r', 'markersize', 15);
+        for j = 1:Nproblems
+            if j == 1 
+                plot(ax, alpha_vec2(ID.t{j}),  X_sol(i+1, ID.t{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            elseif j == Nproblems
+                plot(ax, alpha_vec2(ID.h{j}),  X_sol(i+1, ID.h{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            else
+                plot(ax, alpha_vec2(ID.t{j}),  X_sol(i+1, ID.t{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+                plot(ax, alpha_vec2(ID.h{j}),  X_sol(i+1, ID.h{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            end
         end
     elseif i > nx && i<= nx+6 % plot twist
         ii = i-nx;
         plot(ax, alpha_vec2, twist(ii, :), 'color', 'k', 'linewidth', 1.4);
-        for j = 1:length(index_consensus)
-            plot(ax, alpha_vec2(index_consensus(j)),  twist(ii, index_consensus(j)), 'marker', 'o', 'color', 'r', 'markersize', 15);
+        for j = 1:Nproblems
+            if j == 1 
+                plot(ax, alpha_vec2(ID.t{j}),  twist(ii, ID.t{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            elseif j == Nproblems
+                plot(ax, alpha_vec2(ID.h{j}),  twist(ii, ID.h{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            else
+                plot(ax, alpha_vec2(ID.t{j}),  twist(ii, ID.t{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+                plot(ax, alpha_vec2(ID.h{j}),  twist(ii, ID.h{j}), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            end
         end
     elseif i > nx+6 && i <= nx+6+nu
         ii = i-nx-6;
-        plot(ax, alpha_vec2(2:end), U_sol(ii, :), 'color', 'k', 'linewidth', 1.4);
-        for j = 1:length(index_consensus)
-            plot(ax, alpha_vec2(index_consensus(j)),  U_sol(ii, index_consensus(j)-1), 'marker', 'o', 'color', 'r', 'markersize', 15);
+        plot(ax, alpha_vec2(1:end-1), U_sol(ii, :), 'color', 'k', 'linewidth', 1.4);
+        for j = 1:Nproblems
+            if j == 1 
+                plot(ax, alpha_vec2(ID.t{j}(1:end-1)),  U_sol(ii, ID.t{j}(1:end-1)), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            elseif j == Nproblems
+                plot(ax, alpha_vec2(ID.h{j}(1:end-1)),  U_sol(ii, ID.h{j}(1:end-1)), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            else
+                plot(ax, alpha_vec2(ID.t{j}(1:end-1)),  U_sol(ii, ID.t{j}(1:end-1)), 'marker', 'o', 'color', 'r', 'markersize', 15);
+                plot(ax, alpha_vec2(ID.h{j}(1:end-1)),  U_sol(ii, ID.h{j}(1:end-1)), 'marker', 'o', 'color', 'r', 'markersize', 15);
+            end
         end
     end
     set(ax, 'Fontsize', 18)

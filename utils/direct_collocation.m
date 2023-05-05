@@ -1,7 +1,7 @@
 import casadi.*
 
 % Degree of interpolating polynomial
-d = 2;
+%d = 2;
 
 % Get collocation points
 colloc_type = 'radau';

@@ -54,15 +54,17 @@ d_dot_scale     = d_scale/0.1; %0.1/0.01;
 theta_dot_scale = theta_scale/1; %10*3.14/180/0.01;
 phi_dot_scale   = phi_scale/1; %10*3.14/180/0.01;
 
-X_scale = [alfa_scale; ep_scale; ef_scale; d_scale; theta_scale; phi_scale; alfa_dot_scale; ep_dot_scale; ef_dot_scale; d_dot_scale; theta_dot_scale; phi_dot_scale];
+X_scale = [ep_scale; ef_scale; d_scale; theta_scale; phi_scale; alfa_dot_scale; ep_dot_scale; ef_dot_scale; d_dot_scale; theta_dot_scale; phi_dot_scale];
+nx = length(X_scale);
 
-if alpha_numeric 
-    nx = length(X_scale)-1; %peculiarity of this model that has alfa numerical
-    nx_full = length(X_scale);
-else
-    nx = length(X_scale);
-    nx_full = length(X_scale);
-end
+% if alpha_numeric 
+%     nx = length(X_scale)-1; %peculiarity of this model that has alfa numerical
+%     nx_full = length(X_scale);
+% else
+%     nx = length(X_scale);
+%     nx_full = length(X_scale);
+% end
+
 % Input
 Fz_scale = 2*(m*G + 0.5*rho*S*cl*Vmax^2);
 Fx_scale = Fz_scale*mu_x;

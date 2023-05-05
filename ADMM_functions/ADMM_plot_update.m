@@ -26,21 +26,21 @@ for i = 1:Nproblems
     scaled_err(i) = consErr_norm{i}./sqrt(length(Z{i}));
     scaled_change(i) = consensusChange_norm{i}./sqrt(length(Z{i}));
     
-    [~, ~, states, inputs, algebr, CONS_states, CONS_inputs, CONS_algebr] = unscale_variables(X_origin, Z, nx, nu, nz, d, dalfa);
+    [~, ~, states, inputs, algebr, CONS_states, CONS_inputs, CONS_algebr] = unscale_variables(X_origin, Z_1, o, nx, nu, nz, d, dalfa);
     
     if i == 1
         index_consensus_head = [];
-        index_consensus_tail = (length(alpha_subrange{i})-1) - floor(overlap/2);
-        alpha_head = nan;
+        index_consensus_tail = id.t{i};
+        alpha_head = [];
         alpha_tail = alpha_subrange{i}(1, index_consensus_tail);
     elseif i == Nproblems
-        index_consensus_head = floor(overlap/2)+1;
+        index_consensus_head = id.h{i};
         index_consensus_tail = [];
         alpha_head = alpha_subrange{i}(1, index_consensus_head);
-        alpha_tail = nan;
+        alpha_tail = [];
     else
-        index_consensus_head = floor(overlap/2)+1;
-        index_consensus_tail = (length(alpha_subrange{i})-1) - floor(overlap/2);
+        index_consensus_head = id.h{i};
+        index_consensus_tail = id.t{i};
         alpha_head = alpha_subrange{i}(1, index_consensus_head);
         alpha_tail = alpha_subrange{i}(1, index_consensus_tail);
     end
@@ -70,7 +70,7 @@ for i = 1:Nproblems
     Jac_num = full(car.T_jac([alpha_head, alpha_tail]));
     Jac_der_num = full(car.T_jac_der([alpha_head, alpha_tail]));
     twist_con = nan(6, 2);
-    for kk = 1:2
+    for kk = 1:length([alpha_head,alpha_tail])
         twist_con(:, kk) = full(car.axle_twist(g_gs_num(:, :, kk), Jac_num(:, kk), Jac_der_num(:, kk), CONS_states{i}(:, kk)));
     end
     
@@ -91,11 +91,13 @@ for i = 1:Nproblems
 
         % plot di ogni stato per ogni sotto problema
         line(AX{i}(j+1), alpha_subrange{i}, states{i}(j, :));
-        if i > 1         % (i = 1 non ho head)
-            line(AX{i}(j+1), alpha_head, CONS_states{i}(j, 1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
-        end
-        if i < Nproblems % (i = Nproblems non ho tail)
-            line(AX{i}(j+1), alpha_tail, CONS_states{i}(j, end-1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        if i > 1 && i < Nproblems         % (i = 1 non ho head)
+            line(AX{i}(j+1), alpha_head, CONS_states{i}(j, 1:o+1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+            line(AX{i}(j+1), alpha_tail, CONS_states{i}(j, (o+1)+1:end), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == 1
+            line(AX{i}(j+1), alpha_tail, CONS_states{i}(j, :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == Nproblems
+            line(AX{i}(j+1), alpha_head, CONS_states{i}(j, :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
         end
     end
     
@@ -104,11 +106,13 @@ for i = 1:Nproblems
     for j = nx+1:nx+3
         cla(AX{i}(j+1))
         line(AX{i}(j+1), alpha_subrange{i}, twist(twist_index(j - nx), :));
-        if i>1 %(i = 1 non ho head)
-            line(AX{i}(j+1), alpha_head, twist_con(twist_index(j - nx), 1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
-        end
-        if i<Nproblems %(i = Nproblems non ho tail)
-            line(AX{i}(j+1), alpha_tail, twist_con(twist_index(j - nx), end), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        if i > 1 && i < Nproblems %(i = 1 non ho head)
+            line(AX{i}(j+1), alpha_head, twist_con(twist_index(j - nx), 1:o+1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+            line(AX{i}(j+1), alpha_tail, twist_con(twist_index(j - nx), (o+1)+1:end), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == 1
+            line(AX{i}(j+1), alpha_tail, twist_con(twist_index(j - nx), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == Nproblems
+            line(AX{i}(j+1), alpha_head, twist_con(twist_index(j - nx), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
         end
     end
     
@@ -117,11 +121,13 @@ for i = 1:Nproblems
     for j = nx+4:nx+3+4
         cla(AX{i}(j+1))
         stairs(AX{i}((j+1)), alpha_subrange{i}(1:end-1), inputs{i}(inputs_index(j-nx-3), :));
-        if i>1 %(i = 1 non ho head)
-            line(AX{i}(j+1), alpha_head, CONS_inputs{i}(inputs_index(j-nx-3), 1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
-        end
-        if i<Nproblems %(i = Nproblems non ho tail)
-            line(AX{i}(j+1), alpha_tail, CONS_inputs{i}(inputs_index(j-nx-3), end), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        if i > 1 && i < Nproblems %(i = 1 non ho head)
+            line(AX{i}(j+1), alpha_head(1:end-1), CONS_inputs{i}(inputs_index(j-nx-3), 1:length(alpha_head)-1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+            line(AX{i}(j+1), alpha_tail(1:end-1), CONS_inputs{i}(inputs_index(j-nx-3), length(alpha_head):end), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == 1
+            line(AX{i}(j+1), alpha_tail(1:end-1), CONS_inputs{i}(inputs_index(j-nx-3), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == Nproblems
+            line(AX{i}(j+1), alpha_head(1:end-1), CONS_inputs{i}(inputs_index(j-nx-3), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
         end
     end
 

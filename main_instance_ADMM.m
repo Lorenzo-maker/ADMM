@@ -43,12 +43,12 @@ else
 end
 
 J0 = zeros(1, Nproblems);
-[alpha_subrange] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap);
+[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap);
 
 % create problems
-problem = cell(Nproblems, 1);
+%problem = cell(Nproblems, 1);
 solver_info = cell(Nproblems, 1);
-problemData = cell(Nproblems, 1);
+%problemData = cell(Nproblems, 1);
 sol_struct = cell(Nproblems, 1);
 RHO_head = 1.*ones(Nproblems, 1); % penalty head
 RHO_head_0 = 1.*ones(Nproblems, 1); % penalty head 0
@@ -56,7 +56,7 @@ RHO_tail = 1.*ones(Nproblems, 1); % penalty tail
 RHO_tail_0 = 1.*ones(Nproblems, 1); % penalty tail 0
 previousConsErr = 0;
 
-N_OCP = 0;
+%N_OCP = 0;
 for i = 1:Nproblems
 
     alpha_subrange{i} = round(alpha_subrange{i}, 15); % elemOverlap need to be > nx
@@ -64,7 +64,7 @@ for i = 1:Nproblems
 end
 
 % definite another time effective element overlap 
-elemOverlap = (1*(nx + nu + nz) + nx);
+elemOverlap = (o*(nx + nu + nz) + nx);
 
 %% plots init
 
@@ -116,7 +116,7 @@ for i = 1:Nproblems
         numConsElem = 2*elemOverlap; 
     end
     Z{i} = zeros(numConsElem, 1);      % consensus parameters
-    X{i} = 0;                    % preallocate cells also for solutions (will be overwritten after iteration 0)
+    X{i} = 0;                          % preallocate cells also for solutions (will be overwritten after iteration 0)
     Y{i} = full(Z{i}.*0);              % consensus multipliers
     conv{i} = 0;
 end
@@ -208,18 +208,16 @@ while ~convergence % test di convergenza del consenso
         
          [solutions{kk}, solver_info{kk}] = readSolutions(kk);
         
-        X{kk} = full(solutions{kk}.x);
-        if direct_c
-            %reshape solution to delete collocation points
-            %%%%% assumption d is equal for every subproblem for now...%%%%
-            X{kk} = [];
-            X_origin{kk} = full(solutions{kk}.x);
-            X{kk} = reshape(X_origin{kk}(nx+1:end), [], length(alpha_subrange{kk})-1);
-            Xc{kk} = X{kk}(nu+nz+1:nu+nz+d*nx,:);                       % (nu+nz+1:nu+nz+problemData{kk}.d*nx,:)
-            X{kk} = [X{kk}(1:nu+nz,:);X{kk}(nu+nz+d*nx+1:end,:)];
-            X{kk} = X{kk}(:);
-            X{kk} = [X_origin{kk}(1:nx);X{kk}];
-        end
+        %X{kk} = full(solutions{kk}.x);
+        %reshape solution to delete collocation points
+        %%%%% assumption d is equal for every subproblem for now...%%%%
+        X{kk} = [];
+        X_origin{kk} = full(solutions{kk}.x);
+        X{kk} = reshape(X_origin{kk}(nx+1:end), [], length(alpha_subrange{kk})-1);
+        Xc{kk} = X{kk}(nu+nz+1:nu+nz+d*nx,:);                       % (nu+nz+1:nu+nz+problemData{kk}.d*nx,:)
+        X{kk} = [X{kk}(1:nu+nz,:);X{kk}(nu+nz+d*nx+1:end,:)];
+        X{kk} = X{kk}(:);
+        X{kk} = [X_origin{kk}(1:nx);X{kk}];
         
         
         sol_struct{kk} = solutions{kk};
@@ -238,8 +236,10 @@ while ~convergence % test di convergenza del consenso
         % aggiorno il consenso locale
         if i == 1 % no head
             
-            X_tail = X{i}(end - (nx + (floor(overlap/2) + 1)*(nx + nu + nz))+1: end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+(nx+nu+nz+nx));
-            X_head_next = X{i+1}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
+            %X_tail = X{i}(end - (nx + (floor(overlap/2) + 1)*(nx + nu + nz))+1: end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+(nx+nu+nz+nx));
+            X_tail = X{i}((id.t{i}(1)-1)*(nx+nu+nz)+1:(id.t{i}(end)-1)*(nx+nu+nz)+nx);
+            X_head_next = X{i+1}((id.h{i+1}(1)-1)*(nx+nu+nz)+1:(id.h{i+1}(end)-1)*(nx+nu+nz)+nx);            
+            %X_head_next = X{i+1}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
             Y_tail = Y{i};
             if Nproblems > 2
                 Y_head_next = Y{i+1}(1: length(Y{i+1})/2);
@@ -279,7 +279,8 @@ while ~convergence % test di convergenza del consenso
             
         elseif i == Nproblems % no tail
             
-            X_overlap = X{i}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));            
+            %X_overlap = X{i}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));    
+            X_overlap = X{i}((id.h{i}(1)-1)*(nx+nu+nz)+1:(id.h{i}(end)-1)*(nx+nu+nz)+nx);   
             error{i} = (X_overlap - Z{i});
             
             Z{i} = Ztail; % Z barra
@@ -314,13 +315,16 @@ while ~convergence % test di convergenza del consenso
             Zhead = Ztail; % share with the previous tail problem (Z_i-1)
             
             % update Z_i
-            X_tail = X{i}(end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+1: end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+(nx+nu+nz+nx));
-            X_head_next = X{i+1}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
+            X_tail = X{i}((id.t{i}(1)-1)*(nx+nu+nz)+1:(id.t{i}(end)-1)*(nx+nu+nz)+nx);
+            X_head_next = X{i+1}((id.h{i+1}(1)-1)*(nx+nu+nz)+1:(id.h{i+1}(end)-1)*(nx+nu+nz)+nx);   
+            %X_tail = X{i}(end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+1: end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+(nx+nu+nz+nx));
+            %X_head_next = X{i+1}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
             Y_tail = Y{i}(length(Y{i})/2 + 1:end);
             Y_head_next = Y{i+1}(1: elemOverlap);
             Ztail = update_dual_var(X_tail, X_head_next, RHO_tail(i), RHO_head(i+1), Y_tail, Y_head_next, 'method', 'Augmented-Lagrangian');
             
-            X_head = X{i}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
+            %X_head = X{i}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
+            X_head = X{i}((id.h{i}(1)-1)*(nx+nu+nz)+1:(id.h{i}(end)-1)*(nx+nu+nz)+nx);   
             X_overlap = [X_head; X_tail];            
             error{i} = (X_overlap - Z{i});
             
@@ -371,15 +375,20 @@ while ~convergence % test di convergenza del consenso
     end
     
     % Condizione per aggiornamento Z e Y
-    if gamma{ADMM_iteration + 1} < gamma0*eta^(ADMM_iteration+1)
-        Znext = Z_acc;
-        Ynext = Y_acc;
-        check_gamma = [check_gamma; 1];
-    else
+    if isequal(update_method, 'ADMM')
         Znext = Z;
         Ynext = Y;
-        check_gamma = [check_gamma; 0];
-        gamma{ADMM_iteration + 1} = (1/RHOx)*vecnorm(vertcat(Ynext{:})-vertcat(Yprevious{:}))^2 + RHOx*vecnorm(vertcat(Znext{:})-vertcat(Zprevious{:}))^2;
+    else
+        if gamma{ADMM_iteration + 1} < gamma0*eta^(ADMM_iteration+1)
+            Znext = Z_acc;
+            Ynext = Y_acc;
+            check_gamma = [check_gamma; 1];
+        else
+            Znext = Z;
+            Ynext = Y;
+            check_gamma = [check_gamma; 0];
+            gamma{ADMM_iteration + 1} = (1/RHOx)*vecnorm(vertcat(Ynext{:})-vertcat(Yprevious{:}))^2 + RHOx*vecnorm(vertcat(Znext{:})-vertcat(Zprevious{:}))^2;
+        end
     end
 
     % To avoid new Z and Y after the preliminary optimization
@@ -407,13 +416,13 @@ while ~convergence % test di convergenza del consenso
     
     % test di convergenza
     convergence = all(bool_out); % check if all are true
-    
     % output printing
     ADMM_print(ADMM_iteration, Nproblems, consErr_norm, consensusChange_norm, RHO_head, RHO_tail, conv, solver_info);
     
 
     
     % aggiorno il vettore dei consensi
+    Z_1 = Zprevious;
     Zprevious = Znext;
     Yprevious = Ynext;
     previousConsErr = consErr;
@@ -433,11 +442,11 @@ while ~convergence % test di convergenza del consenso
     end
     
     % plots update
-    ADMM_plot_update;
+    ADMM_plot_update; %%%% SISTEMA INDICI
 
 end
 time_while = toc;
-delete(gcp);
+%delete(gcp);
 
 %% post processing whole solution (plots)
 post_process;
@@ -448,7 +457,8 @@ problem_structure.Nsteps = Nsteps;
 problem_structure.alpha_end = alfa_end;
 problem_structure.alpha_vec = alpha_vec;
 problem_structure.alpha_subrange = alpha_subrange;
-problem_structure.overlap = overlap;
+problem_structure.o = o;
+problem_structure.e = e;
 
 
 mkdir(savepath);

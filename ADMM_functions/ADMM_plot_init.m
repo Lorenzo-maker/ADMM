@@ -10,7 +10,7 @@ tabG = uitabgroup(F);
 
 tabs = gobjects(Nproblems+1, 1);
 subtabtitle = {'convergence', 'trajectory', 'ep', 'ef', 'd', 'theta', 'phi', 'alpha dot', 'ep dot', 'ef dot', 'd dot', 'theta dot', 'phi dot',...
-    'u', 'v', 'r', 'delta', 'Fx', 'Fy', 'Mz'};
+    'u', 'v', 'r', 'Fx', 'Fy', 'Mz', 'delta'};
 
 for i = 1:Nproblems+1
     

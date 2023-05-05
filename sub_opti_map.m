@@ -1,45 +1,27 @@
-function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, overlap_tail, overlap_head, problem_number, d, init_subrange, opts)
+function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, problem_number, d, init_subrange, opts)
     
 % in this version we overlap only one set of states at the head and the
 % tail (no controls, no algebraic variables)
 
     %% Discretization
-    global alfa_end
     dalfa = round(alfarange(2) - alfarange(1),15);
     N = length(alfarange)-1;
-
     
     %% Other script
     import casadi.*
-    
-    if direct_c 
-        direct_collocation;
-        tau_colloc = tau_root(2:end);
-    end
-    ds = full(pista.length_eval(linspace(0,dalfa,10)));
-    
+    direct_collocation;    
     car_parameters_ocp;
     common_ocp;
 
     %% Import initial guess
     guess_0 = init_subrange;
-    guess_0.q = guess_0.q(:, 2:end);
+    guess_0.q = guess_0.q(:, 2:end); % remove alpha from guess
     X_0 = guess_0.q(1,:)'./X_scale; 
     guess_0.q = guess_0.q;
-    
-%     assignin('base', 'guess_num', guess_0);
-%     assignin('base', 'Jac_num', Jac_num);
-%     assignin('base', 'Jac_der_num', Jac_der_num);
-%     assignin('base', 'g_gs_num', g_gs_num);
-%     assignin('base', 'Jac_colloc', Jac_colloc);
-%     assignin('base', 'Jac_der_colloc', Jac_der_colloc);
-%     assignin('base', 'g_gs_colloc', g_gs_colloc);
-%     assignin('base', 'alfa_colloc', alfa_colloc);
-%     assignin('base', 'alfarange', alfarange);
-%     problema = [];
-%     numericalData = [];
-%     scale = [];
-%     return
+%     X_0 = zeros(nx,1);
+%     X_0(3) = -0.022;
+%     X_0(6) = 6e-4;
+%     X_0 = X_0./X_scale;
     
     %% Construct NLP
     Xb.lb = X_lb;
@@ -84,47 +66,22 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, over
     RHO_head = pb.p(2);
     RHO_tail = pb.p(3);
     
-    guess_0.q(:,1) = 0;
-    guess_0.q(:,7) = 0;
+%     guess_0.q(:,1) = 0;
+%     guess_0.q(:,7) = 0;
     
     % Initial guess
     for k = 1:N
-        %Initialization of states
-        X_0 = guess_0.q(k+1,:)'./X_scale;%scaled_states_0;
-        %Initialization of controls
-        U_0 = guess_0.w(k,:)'./U_scale(1:nu-1);%scaled_controls_0;
-        % Initialization for steer angle (Fy11/Cf + beta)        
-        Vk_0 = car.axle_twist(g_gs_num(:, :, k+1), Jac_num(:, k+1), Jac_der_num(:, k+1), X_0.*X_scale);
-        alfa1num = (U_0(2)*U_scale(2)*a2 + U_0(6)*U_scale(6))/(2*(a1+a2))/CsFz(m*G*a2/(a1+a2)/2);
-        delta0 = alfa1num + (Vk_0(2) + Vk_0(end)*a1)/Vk_0(1);
-        U_0 = [U_0;delta0/U_scale(nu)];
-        
-        %Initialization of algebraic parameters
-        wrenchout_0 = car.axle_wrench_sym(g_gs_num(:, :, k+1), Jac_num(:, k+1), Jac_der_num(:, k+1),X_0.*X_scale, U_0(1:end-1).*U_scale(1:end-1));
-        Dz1_0  = DZ_1(wrenchout_0(4), U_0(2)*U_scale(2)*(a2/l) + U_0(6)*U_scale(6)/l, U_0(2)*U_scale(2)*(a1/l) - U_0(6)*U_scale(6)/l);
-        Dz2_0  = DZ_2(wrenchout_0(4), U_0(2)*U_scale(2)*(a2/l) + U_0(6)*U_scale(6)/l, U_0(2)*U_scale(2)*(a1/l) - U_0(6)*U_scale(6)/l);
-        Fzaero1_0 = 0.5*rho*cz1*S*Vk_0(1)^2;
-        Fzaero2_0 = 0.5*rho*cz2*S*Vk_0(1)^2;
-        Fz11_0 = Fz11tyre(wrenchout_0(3), Fzaero1_0, Fzaero2_0, wrenchout_0(5), Dz1_0);
-        Fz12_0 = Fz12tyre(wrenchout_0(3), Fzaero1_0, Fzaero2_0, wrenchout_0(5), Dz1_0);
-        Fz21_0 = Fz21tyre(wrenchout_0(3), Fzaero1_0, Fzaero2_0, wrenchout_0(5), Dz2_0);
-        Fz22_0 = Fz22tyre(wrenchout_0(3), Fzaero1_0, Fzaero2_0, wrenchout_0(5), Dz2_0);
-        Y1_0 = Fytyre(alfa1_fun(Vk_0, U_0.*U_scale), Fz11_0)+Fytyre(alfa1_fun(Vk_0, U_0.*U_scale), Fz12_0);
-        Y2_0 = Fytyre(alfa2_fun(Vk_0, U_0.*U_scale), Fz21_0)+Fytyre(alfa2_fun(Vk_0, U_0.*U_scale), Fz22_0);
-        Fxa_0 = max(U_0(1)*U_scale(1), 0);
-        Fxb_0 = min(U_0(1)*U_scale(1), 0);
-        Z_0 = [Fz11_0; Fz12_0; Fz21_0; Fz22_0; Y1_0; Y2_0; Fxa_0; Fxb_0]./Z_scale;%scaled_algebraic_0;
         
         V0 = Vi;
         X_0 = zeros(11,1);
-        X_0(3) = mean(guess_0.q(:,3))/X_scale(3);
-        X_0(6) = mean(guess_0.q(:,6))/X_scale(6);%dalfa/(ds/(V0))/X_scale(6);
+        X_0(3) = mean(guess_0.q(:,3))/X_scale(3);%-0.022/X_scale(3);%
+        X_0(6) = mean(guess_0.q(:,6))/X_scale(6);%6e-04/X_scale(6);%mean(guess_0.q(:,6))/X_scale(6);%dalfa/(ds/(V0))/X_scale(6);
         Fz0 = car.M(1,1)*9.81 + 0.5*rho*(cz1+cz2)*S*V0^2;
         U_0 = [0.5*rho*cx*S*V0^2; 0; car.M(1,1)*9.81 + 0.5*rho*(cz1+cz2)*S*V0^2; 0; 0; 0; 0]./U_scale;
         Z_0 = [Fz0/4*ones(4,1); 0; 0; 0.5*rho*cx*S*V0^2; 0]./Z_scale;
         pb.w0 = [pb.w0; U_0; Z_0; repmat(X_0, d+1, 1)];
     end
-    pb.w0 = [guess_0.q(1,:)'./X_scale; pb.w0];
+    pb.w0 = [guess_0.q(1,:)'./X_scale; pb.w0];%[X_0./X_scale; pb.w0]; %
     
     % Start constraint
     Vk = car.axle_twist(g_gs_num(:, :, 1), Jac_num(:, 1), Jac_der_num(:, 1), pb.x_1.*X_scale); 
@@ -145,18 +102,11 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, over
         pb.append_g((dalfa*fj(2:end) - pb.xp(:,i).*X_scale)./X_scale, zeros(nx,1), zeros(nx, 1));
     end
     
-    if direct_c
-        pb.append_g(pb.xc_end - pb.x, zeros(nx,1), zeros(nx, 1));
-    end
+    pb.append_g(pb.xc_end - pb.x, zeros(nx,1), zeros(nx, 1));
     
     g_gs_num_k = reshape(data_num(1:16, d+2),4,4);
     Jac_num_k = (data_num(16 + 1: 16 + 6, d+2));
     Jac_der_num_k = (data_num(16 + 7: end, d+2));
-    fk = F(g_gs_num_k, Jac_num_k, Jac_der_num_k, pb.x.*X_scale, pb.u.*U_scale);
-    if ~direct_c
-        % Continuity constraints (Integration scheme)
-        pb.append_g(fk*dalfa./X_scale - (pb.x - pb.x_1), zeros(nx,1), zeros(nx, 1));
-    end
     
     Vk = car.axle_twist(g_gs_num_k, Jac_num_k, Jac_der_num_k, pb.x.*X_scale);  
     g_gs_num_1 = reshape(data_num(1:16, 1),4,4);
@@ -238,7 +188,7 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, over
     pb.build_map('JN', N-1);
     % Build g 
     pb.build_g;
-    % Build J
+    % Build J (different cost function for initial step)
     pb.build_J('range', 2:N);
     
     if strcmp(pb.sym_type, 'SXMX')
@@ -250,35 +200,40 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, over
         RHO_tail = pb.p(3);
     end
     
+    %%% add cost function term for initial step %%%
     kd = 0.001;
     fdtdak = 1/(pb.X(6,1)*X_scale(6) + tol);
     V1 = car.axle_twist(g_gs_num(:, :, 2), Jac_num(:, 2), Jac_der_num(:, 2), pb.X(:,1).*X_scale);
     V0 = car.axle_twist(g_gs_num(:, :, 1), Jac_num(:, 1), Jac_der_num(:, 1), pb.X_1(:,1).*X_scale);
-    pb.J = pb.J + activation_opt*((fdtdak*dalfa)^2 + pb.X_1(10,1)^2 + pb.X_1(11,1)^2 + pb.X(10,1)^2 + pb.X(11,1)^2 + 100*kd*(V0(2)^2 + V0(6)^2 + 100*pb.X_1(7,1)^2) + (pb.X_1(9,1)*X_scale(9))^2 + 10^-7*((V1(2) - V0(2))/dalfa)^2 + 10^-4*((V1(6) - V0(6))/dalfa)^2);
+    pb.J = pb.J + activation_opt*((fdtdak*dalfa)^2 + 10*pb.X_1(10,1)^2 + 10*pb.X_1(11,1)^2 + 10*pb.X(10,1)^2 + 10*pb.X(11,1)^2 + 100*kd*(V0(2)^2 + V0(6)^2 + 100*pb.X_1(7,1)^2) + (pb.X_1(5,1)*X_scale(5))^2 + 10*(pb.X_1(4,1)*X_scale(4))^2 + 10*(pb.X_1(3,1)*X_scale(3))^2 + (pb.X(9,1)*X_scale(9))^2 + (pb.X_1(9,1)*X_scale(9))^2 + 10^-7*((V1(2) - V0(2))/dalfa)^2 + 10^-4*((V1(6) - V0(6))/dalfa)^2);
     pb.J = pb.J + activation_start*((V0(1)/20 - 1)^2 + (V1(1)/20 - 1)^2 + pb.X(1,1)^2 + 0.1*pb.X(6,1)^2);
     
     Jc = 0;
     Zcons = [];
     Ycons = [];
-    if overlap_head > 0
-        k_head = floor(overlap_head/2) + 1;
+    if ~isempty(id.h{problem_number})
+        k_head = id.h{problem_number}(1:end-1);
         % consensus term        
-        Zcons_h = casadi.(sym_type).sym(['Zcons' num2str(k_head)], 2*nx + nu + nz);
+        Zcons_h = casadi.(sym_type).sym(['Zcons' num2str(k_head)], o*(nx + nu + nz) + nx);
         Zcons = [Zcons; Zcons_h];        
-        Ycons_h = casadi.(sym_type).sym(['Ycons' num2str(k_head)], 2*nx + nu + nz);
+        Ycons_h = casadi.(sym_type).sym(['Ycons' num2str(k_head)], o*(nx + nu + nz) + nx);
         Ycons = [Ycons; Ycons_h];
-        cdiff = ([pb.X_1(:,k_head); pb.U(:,k_head); pb.Z(:,k_head); pb.X(:,k_head)] - Zcons_h);
+        x_h = [pb.X_1(:,k_head); pb.U(:,k_head); pb.Z(:,k_head)];
+        x_h = [x_h(:); pb.X_1(:,id.h{problem_number}(end))];
+        cdiff = (x_h - Zcons_h);
         Jc = Jc + Ycons_h'*cdiff + 0.5*RHO_head*(cdiff.')*(cdiff);
     end
     
-    if overlap_tail > 0
-        k_tail = k == N-floor(overlap_tail/2);
+    if ~isempty(id.t{problem_number})
+        k_tail = id.t{problem_number}(1:end-1);
         % consensus term        
-        Zcons_t = casadi.(sym_type).sym(['Zcons' num2str(k_tail)], 2*nx + nu + nz);
+        Zcons_t = casadi.(sym_type).sym(['Zcons' num2str(k_tail)], o*(nx + nu + nz) + nx);
         Zcons = [Zcons; Zcons_t];
-        Ycons_t = casadi.(sym_type).sym(['Ycons' num2str(k_tail)], 2*nx + nu + nz);
+        Ycons_t = casadi.(sym_type).sym(['Ycons' num2str(k_tail)], o*(nx + nu + nz) + nx);
         Ycons = [Ycons; Ycons_t];
-        cdiff = ([pb.X_1(:,k_tail); pb.U(:,k_tail); pb.Z(:,k_tail); pb.X(:,k_tail)] - Zcons_t);
+        x_t = [pb.X_1(:,k_tail); pb.U(:,k_tail); pb.Z(:,k_tail)];
+        x_t = [x_t(:); pb.X_1(:,id.t{problem_number}(end))];
+        cdiff = (x_t - Zcons_t);
         Jc = Jc + Ycons_t'*cdiff + 0.5*RHO_tail*(cdiff.')*(cdiff);
     end
     pb.J = pb.J + activation.*(Jc);
@@ -351,8 +306,6 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, over
     numericalData.opts = opts;
 %     numericalData.dll_filename = sprintf('%s_%i.dll', 'Compilati\sub_problem', problem_number);
 %     numericalData.bat_filename = sprintf('%s_%i.bat', 'Compilati\compilation', problem_number);  
-    if direct_c 
-        numericalData.d = d;
-    end
+    numericalData.d = d;
     
 end

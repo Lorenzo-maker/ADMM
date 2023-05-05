@@ -6,8 +6,8 @@
 lap = 1;            % number of lap
 Nproblems = 4*lap;  % number of subproblems per lap
 Nsteps = 1500*lap;  % TOTAL STEPS 
-e = 4;              % number of mesh interval for overlapping area
-o = 2;              % number of mesh interval for consensus (if o = 0 consensus only on states at interfaces)
+e = 30;              % number of mesh interval for overlapping area
+o = 1;              % number of mesh interval for consensus (if o = 0 consensus only on states at interfaces)
 d = 2;              % number of collocation points 
 
 %%%%%% check discretization type and define final alpha %%%%%%       
@@ -15,9 +15,9 @@ grid = 0; % define grid type
 % 0 -> alpha_grid with numeric alpha
 % 1 -> time_grid                                
 
-if grid == 0       
-    alpha_numeric = true;
-end
+% if grid == 0       
+%     alpha_numeric = true;
+% end
 
 global alfa_end
 alfa_end = 1;
@@ -37,7 +37,7 @@ rho_scale_tail = 1;%0.02;
 init_guess = true;
 if init_guess 
     load guess_0_1_tot_tris.mat guess_0_1_tot_tris % guess_0_1colloc.mat for whole track
-    guess = guess_0_1_tot_tris;
+    guess = guess_0_1_tot_tris;    
 end
 
 %%%%%%%%%%%%%%%%%%%%% Update Methods %%%%%%%%%%%%%%%%%%%%%%%%%%%%%

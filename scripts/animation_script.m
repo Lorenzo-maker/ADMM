@@ -10,7 +10,7 @@ Fig.Position = [0,0, 1366, 780];
 mainAx.Units = 'normalized';
 mainAx.Position = [0, 0, 0.7, 0.7];
 hold(mainAx, 'on')
-grid(mainAx, 'off')
+%grid(mainAx, 'off')
 mainAx.Visible = 'off';
 
 
@@ -19,7 +19,7 @@ steering_sol = U_sol(end, :)*10; % assumng 10 steering ratio
 
 steering_axes = axes('parent', Fig, 'Units', 'normalized', 'position', [0.75, 0.15, 0.2, 0.2], 'visible', 'off');
 hold(steering_axes, 'on')
-grid(steering_axes, 'off')
+%grid(steering_axes, 'off')
 axis(steering_axes, 'equal')
 steering_transform = hgtransform(steering_axes);
 Xsteer = load('Data/coordinateX_steering.mat');

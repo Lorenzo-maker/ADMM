@@ -21,17 +21,17 @@ addpath(genpath('Extra'));
 ADMM_batch_settings;
 
 %%%%%%%%%%%%%%%%%%%%%%%% element overlap calculation %%%%%%%%%%%%%%%%%%%%%%
-if overlap >= 1 && overlap_control == true
-    elemOverlap = (overlap*(nx + nu + nz)+nx);
-else
-    elemOverlap = nx;
-end
+
+elemOverlap = (o*(nx + nu + nz)+nx);
 
 %%%%% Load alpha_subrange
+[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap);
 alpha_subrange = alpha_subrange{ID_instance};
 %%%%% Use initial guess from simulation
 if init_guess 
-    [init_subrange] = split_init(alpha_subrange, guess, nx, nx_full);
+    [init_subrange] = split_init(alpha_subrange, guess, nx);
+else
+    init_subrange = [];
 end
 
 convergence = 0;
@@ -44,22 +44,21 @@ tic
 waiting = true;
 waiting_filename = sprintf('Temp\\%s_%i\\%s_%i.txt', 'SubInstance', ID_instance, 'waiting_file', ID_instance);
 
-if ID_instance == 1
-    overlap_tail = overlap;
-    overlap_head = 0;
-elseif ID_instance == Nproblems
-    overlap_tail = 0;
-    overlap_head = overlap;
-else
-    overlap_tail = overlap;
-    overlap_head = overlap;
-end
+% if ID_instance == 1
+%     overlap_tail = e;
+%     overlap_head = 0;
+% elseif ID_instance == Nproblems
+%     overlap_tail = 0;
+%     overlap_head = e;
+% else
+%     overlap_tail = e;
+%     overlap_head = e;
+% end
 
-% pista = track_fun(1, '3D', 1, 'end', 1500, 'alfa_limited', true, 'alfa_lim', [max(0, alpha_subrange(1)-10*dalfa), min(alfa_end, alpha_subrange(end)+10*dalfa)]);
 load(sprintf('Temp//SubInstance_%i//pista.mat',ID_instance))
-[problem, problemData] = sub_opti_map(alpha_subrange,...
+[problem, problemData] = sub_opti_map(alpha_subrange,...                                        
                                         pista,...
-                                        overlap_tail, overlap_head,...
+                                        o, id,...
                                         ID_instance, d,...
                                         init_subrange,...
                                         IPOPT_opt);

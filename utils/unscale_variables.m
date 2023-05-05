@@ -1,4 +1,4 @@
-function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, nx, nu, nz, d, dalfa)
+function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, o, nx, nu, nz, d, dalfa)
 %
 % [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, nx, nu, nz, d)
 %
@@ -31,23 +31,26 @@ for i = 1:length(W)
     W_inter = reshape(W{i}(nx+1:end), nu+nz+nx*(d+1), []).*[U_scale; Z_scale; repmat(W_scale, d+1, 1)];
     W{i} = [init; W_inter(:)];
     
-    X{i} = [init, W_inter(nu+nz+nx*d+1: end, :)];
-    U{i} = W_inter(1:nu, :);
-    Z{i} = W_inter(nu+1: nu+nz, :);
+    X{i} = [init, W_inter(nu+nz+nx*d+1: end, :)]; % i-th unscaled solution for states
+    U{i} = W_inter(1:nu, :);                      % i-th unscaled solution for controls    
+    Z{i} = W_inter(nu+1: nu+nz, :);               % i-th unscaled solution for algebraic 
     
     if i == 1 || i == length(W); col = 1; else; col= 2; end
-    CONS_inter = reshape(CONS{i}, nx*2 + nu +nz, col);
+    CONS_inter = reshape(CONS{i}, o*(nx + nu +nz) + nx, col);
     init = CONS_inter(1:nx, :).*W_scale;
-    CONS_inter = CONS_inter(nx+1:end, :).*[U_scale; Z_scale; W_scale];
+    CONS_inter = CONS_inter(nx+1:end, :).*repmat([U_scale; Z_scale; W_scale],o,1);
     CONS{i} = [init; CONS_inter];
     CONS{i} = CONS{i}(:);
     
     %CONS_X{i} = [init, CONS_inter(nu+nz+nx+1: end, :)];
     if i == 1 || i == length(W)
-        CONS_X{i} = [init,CONS_inter(nu+nz+1: end, :)];
+        temp_CONS = reshape(CONS_inter, nu+nz+nx, []);
+        CONS_X{i} = [init,temp_CONS(nu+nz+1: end, :)];
     else
-        CONS_X{i} = [init(:,1),CONS_inter(nu+nz+1: end, 1),init(:,2), CONS_inter(nu+nz+1: end, 2)];
+        temp_CONS = reshape(CONS_inter, nu+nz+nx, []);        
+        %CONS_X{i} = [init(:,1),temp_CONS(nu+nz+1: end, 1:(o+1)), temp_CONS(nu+nz+1: end, (o+1)+1:end)];
+        CONS_X{i} = [init(:,1),temp_CONS(nu+nz+1: end, 1:o),init(:,2), temp_CONS(nu+nz+1: end, o+1:end)];
     end
-    CONS_U{i} = CONS_inter(1:nu, :);
-    CONS_Z{i} = CONS_inter(nu+1: nu+nz, :);
+    CONS_U{i} = temp_CONS(1:nu, :);
+    CONS_Z{i} = temp_CONS(nu+1: nu+nz, :);
 end
