@@ -66,7 +66,7 @@ for i = 1:Nproblems
 end
 
 
-if e > 0 && o > 0 && e >= o % case extended tail/head grater than consenus area
+if e > 0 && e >= o/2 % case extended tail/head grater than consenus area
    for i = 1:Nproblems
        if i == 1
            alpha_subrange{i} = [alpha_subrange{i}, alpha_range(id_end(i) + 1: id_end(i) + e)];
@@ -76,7 +76,8 @@ if e > 0 && o > 0 && e >= o % case extended tail/head grater than consenus area
            alpha_subrange{i} = [alpha_range(id_start(i) - e:id_start(i)-1), alpha_subrange{i}, alpha_range(id_end(i) + 1: id_end(i) + e)];
        end
    end
-elseif e == 0 && o > 0  % case 2: extended tail doesn't exist
+%elseif e == 0 && o > 0  % case 2: extended tail doesn't exist
+else
    for i = 1:Nproblems
        if i == 1
            alpha_subrange{i} = [alpha_subrange{i}, alpha_range(id_end(i) + 1: id_end(i) + ceil(o/2))];
@@ -95,13 +96,26 @@ id.t = cell(Nproblems,1);
 for i = 1:Nproblems
     if i == 1
         id.h{i} = [];
-        id.t{i} = length(alpha_subrange{i}) - e - floor(o/2):1:length(alpha_subrange{i}) - e + ceil(o/2);
+        if e >= o/2 && e > 0
+            id.t{i} = length(alpha_subrange{i}) - e - floor(o/2):1:length(alpha_subrange{i}) - e + ceil(o/2);
+        else
+            id.t{i} = length(alpha_subrange{i}) - o:1:length(alpha_subrange{i});
+        end
     elseif i == Nproblems
-        id.h{i} = e + 1 - floor(o/2):1: e + 1 + ceil(o/2);
+        if e >= o/2 && e > 0
+            id.h{i} = e + 1 - floor(o/2):1: e + 1 + ceil(o/2);
+        else
+            id.h{i} = 1:1:o+1;
+        end
         id.t{i} = [];
     else
-        id.h{i} = e + 1 - floor(o/2):1: e + 1 + ceil(o/2);
-        id.t{i} = length(alpha_subrange{i}) - e - floor(o/2):1:length(alpha_subrange{i}) - e + ceil(o/2);
+        if e >= o/2 && e > 0
+            id.h{i} = e + 1 - floor(o/2):1: e + 1 + ceil(o/2);
+            id.t{i} = length(alpha_subrange{i}) - e - floor(o/2):1:length(alpha_subrange{i}) - e + ceil(o/2);
+        else %(caso e = 0 oppure e minore di estenzione dovuta ad o)
+            id.h{i} = 1:1:o+1;
+            id.t{i} = length(alpha_subrange{i}) - o:1:length(alpha_subrange{i});
+        end        
     end
 end
 

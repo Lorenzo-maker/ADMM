@@ -317,13 +317,10 @@ while ~convergence % test di convergenza del consenso
             % update Z_i
             X_tail = X{i}((id.t{i}(1)-1)*(nx+nu+nz)+1:(id.t{i}(end)-1)*(nx+nu+nz)+nx);
             X_head_next = X{i+1}((id.h{i+1}(1)-1)*(nx+nu+nz)+1:(id.h{i+1}(end)-1)*(nx+nu+nz)+nx);   
-            %X_tail = X{i}(end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+1: end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+(nx+nu+nz+nx));
-            %X_head_next = X{i+1}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
             Y_tail = Y{i}(length(Y{i})/2 + 1:end);
             Y_head_next = Y{i+1}(1: elemOverlap);
             Ztail = update_dual_var(X_tail, X_head_next, RHO_tail(i), RHO_head(i+1), Y_tail, Y_head_next, 'method', 'Augmented-Lagrangian');
             
-            %X_head = X{i}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
             X_head = X{i}((id.h{i}(1)-1)*(nx+nu+nz)+1:(id.h{i}(end)-1)*(nx+nu+nz)+nx);   
             X_overlap = [X_head; X_tail];            
             error{i} = (X_overlap - Z{i});
@@ -409,7 +406,6 @@ while ~convergence % test di convergenza del consenso
         consensusChange{i} = abs(Znext{i} - Zprevious{i}); % dual residual
         consErr_norm{i} = vecnorm(error{i}); % norm of primal residual
         consErr{i} = abs(error{i}); % primal residual
-        %conv_old{i} = (consErr_eu{i} < consensusTol.*sqrt(length(Znext{i}))) & (consensusChange_eu{i} < consensusChangeTol.*sqrt(length(Znext{i})));
         conv{i} = (consErr{i} < epsilon_error{i}) & (consensusChange{i} < epsilon_z{i});
         bool_out = [bool_out; conv{i}];
     end
@@ -442,7 +438,7 @@ while ~convergence % test di convergenza del consenso
     end
     
     % plots update
-    ADMM_plot_update; %%%% SISTEMA INDICI
+    ADMM_plot_update; 
 
 end
 time_while = toc;

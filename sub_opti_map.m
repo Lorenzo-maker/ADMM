@@ -212,27 +212,43 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     Zcons = [];
     Ycons = [];
     if ~isempty(id.h{problem_number})
-        k_head = id.h{problem_number}(1:end-1);
+        if o == 0
+            k_head = id.h{problem_number};
+        else
+            k_head = id.h{problem_number}(1:end-1);
+        end
         % consensus term        
         Zcons_h = casadi.(sym_type).sym(['Zcons' num2str(k_head)], o*(nx + nu + nz) + nx);
         Zcons = [Zcons; Zcons_h];        
         Ycons_h = casadi.(sym_type).sym(['Ycons' num2str(k_head)], o*(nx + nu + nz) + nx);
         Ycons = [Ycons; Ycons_h];
-        x_h = [pb.X_1(:,k_head); pb.U(:,k_head); pb.Z(:,k_head)];
-        x_h = [x_h(:); pb.X_1(:,id.h{problem_number}(end))];
+        if o == 0
+            x_h = pb.X_1(:,k_head);
+        else
+            x_h = [pb.X_1(:,k_head); pb.U(:,k_head); pb.Z(:,k_head)];
+            x_h = [x_h(:); pb.X(:,id.h{problem_number}(end-1))];
+        end
         cdiff = (x_h - Zcons_h);
         Jc = Jc + Ycons_h'*cdiff + 0.5*RHO_head*(cdiff.')*(cdiff);
     end
     
     if ~isempty(id.t{problem_number})
-        k_tail = id.t{problem_number}(1:end-1);
+        if o == 0
+            k_tail = id.t{problem_number};
+        else            
+            k_tail = id.t{problem_number}(1:end-1);
+        end
         % consensus term        
         Zcons_t = casadi.(sym_type).sym(['Zcons' num2str(k_tail)], o*(nx + nu + nz) + nx);
         Zcons = [Zcons; Zcons_t];
         Ycons_t = casadi.(sym_type).sym(['Ycons' num2str(k_tail)], o*(nx + nu + nz) + nx);
-        Ycons = [Ycons; Ycons_t];
-        x_t = [pb.X_1(:,k_tail); pb.U(:,k_tail); pb.Z(:,k_tail)];
-        x_t = [x_t(:); pb.X_1(:,id.t{problem_number}(end))];
+        Ycons = [Ycons; Ycons_t];        
+        if o == 0
+            x_t = pb.X(:,k_tail-1);
+        else            
+            x_t = [pb.X_1(:,k_tail); pb.U(:,k_tail); pb.Z(:,k_tail)];
+            x_t = [x_t(:); pb.X(:,id.t{problem_number}(end-1))];
+        end
         cdiff = (x_t - Zcons_t);
         Jc = Jc + Ycons_t'*cdiff + 0.5*RHO_tail*(cdiff.')*(cdiff);
     end
