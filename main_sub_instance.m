@@ -29,7 +29,7 @@ elemOverlap = (o*(nx + nu + nz)+nx);
 alpha_subrange = alpha_subrange{ID_instance};
 %%%%% Use initial guess from simulation
 if init_guess 
-    [init_subrange] = split_init(alpha_subrange, guess, nx);
+    [init_subrange] = split_init(alpha_subrange, guess, nx, 'alpha_numeric', alpha_numeric);
 else
     init_subrange = [];
 end

@@ -11,13 +11,7 @@ o = 1;              % number of mesh interval for consensus (if o = 0 consensus 
 d = 2;              % number of collocation points 
 
 %%%%%% check discretization type and define final alpha %%%%%%       
-grid = 0; % define grid type
-% 0 -> alpha_grid with numeric alpha
-% 1 -> time_grid                                
-
-% if grid == 0       
-%     alpha_numeric = true;
-% end
+alpha_numeric = true;
 
 global alfa_end
 alfa_end = 1;
@@ -46,7 +40,7 @@ alfa_stationary = 0.3;
 eta = 0.85;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+fileparts(which('guess_0_1_tot_tris.mat'))
 %%%%%%%%%%%%%%%%%%%%% Tolerance for X, U, Z %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 epsilon_state = 0.01*ones(nx,1);      % define error tolerance for states
 epsilon_control = 0.001*ones(nu,1);   % define error tolerance for controls

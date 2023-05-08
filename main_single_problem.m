@@ -65,18 +65,24 @@ else
 end
     
 %alpha_vec = linspace(0, alfa_end, Nsteps+1);
-overlap_tail = 0;
-overlap_head = 0;
-ID_instance = 1;
-direct_c = 2;
-[init_subrange] = split_init(alpha_vec, guess, nx+1, nu);
 
+ID_instance = 1;
+if init_guess 
+    [init_subrange] = split_init(alpha_vec, guess, nx, 'alpha_numeric', alpha_numeric);
+else
+    init_subrange = [];
+end
+
+id.t{1} = [];
+id.h{1} = [];
+ID.t{1} = [];
+ID.h{1} = [];
 %% problem creation and solution
 tic
-[problem, problemData] = sub_opti_map(alpha_vec,...
+[problem, problemData] = sub_opti_map(alpha_vec,...                                        
                                         pista,...
-                                        overlap_tail, overlap_head,...
-                                        ID_instance, direct_c,...
+                                        o, id,...
+                                        ID_instance, d,...
                                         init_subrange,...
                                         IPOPT_opt);
 time_build = toc; % may be way faster with map class
@@ -113,7 +119,8 @@ problem_structure.Nsteps = Nsteps;
 problem_structure.alpha_end = alfa_end;
 problem_structure.alpha_vec = alpha_vec;
 problem_structure.alpha_subrange = alpha_vec;
-problem_structure.overlap = 0;
+problem_structure.o = o;
+problem_structure.e = e;
 
 
 mkdir(savepath);

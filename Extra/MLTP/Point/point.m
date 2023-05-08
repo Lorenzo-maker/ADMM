@@ -1,12 +1,13 @@
 clear all; close all; clc;
 addpath(genpath('..\..\Casadi'))
 addpath('C:\Users\blore\OneDrive - University of Pisa\Unipi\PhD\NURBS\Track')
+addpath('C:\Users\blore\OneDrive - University of Pisa\Unipi\PhD\Tyre\MF_Tyre')
 addpath('..\..\Functions_utils')
 addpath('..\')
 addpath('..\..\')
 import casadi.*
 
-% Load track
+%% TRack & Grid
 warning off
 load('track_stored.mat')
 warning on
@@ -29,11 +30,16 @@ ts_grid(3,:) = 0;
 ts_grid = ts_grid./vecnorm(ts_grid);
 psi_grid = atan_track(ts_grid, 'clockwise');
 
+%% Tyre
+% load('Fsae_2022.mat')
+% [~, ~, data.tyre.Fx, data.tyre.Fy] = MF_Tyre(tir, 'shift', 0, 'curvature', 0);
+
 % vehicle data
 data.rho         = 1.2073;                    % air density
 data.S           = 1.4;                       % front area
 data.cx          = 1.19;                      % drag coefficient
 data.cz          = 3.63;                      % lift coefficient
+
 data.G           = 9.81;                      % gravity
 data.m           = 647.7;                     % mass of car in kg
 data.Fz_start    = data.m*data.G;                       % weigth force (Newton)
@@ -95,7 +101,7 @@ end
 xdot = car.F(pb.x, pb.u, pb.z);
 pb.Jj = (pb.z(5)*car.data.Z_scale(5))^2 + 0.1*(pb.u(2)*car.data.U_scale(2))^2 + 0.01*xdot(2)^2 + 1*(pb.z_1(2)-pb.z(2))^2;
 % Evaluate cost function for generic interval
-pb.cost;
+% pb.cost;
 % Continuity equation for generic interval
 pb.append_g(pb.xc_end - pb.x , zeros(car.nx,1), zeros(car.nx,1));
 % pb.append_g((pb.x - pb.x_1).*data.X_scale - xdot.*pb.z(5)*data.Z_scale(5), zeros(car.nx,1), zeros(car.nx,1))
