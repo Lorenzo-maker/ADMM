@@ -1,7 +1,14 @@
 %% admm settings
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
-
+addpath(genpath('Model_script/Point'));
+homotopy = false;
+init_guess = false;
+if homotopy
+    ITER_start = 2; %last homotopy iteration (2 for ABA)
+else
+    ITER_start = 0;
+end
 %%%%%%%%%%%%%%%%%%%%% Sub-problem parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 lap = 1;            % number of lap
 Nproblems = 4*lap;  % number of subproblems per lap
@@ -19,6 +26,7 @@ dalfa = alfa_end/(Nsteps/lap);
 
 %%%%%%%% Scaling for variables and variables size %%%%%%%%%%%%%%%
 
+alpha_vec = linspace(0,alfa_end, Nsteps+1);
 car_parameters_ocp; 
 
 %%%%%%%%%%%%%%%%%%%%% rho parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -28,9 +36,9 @@ rho_scale_tail = 1;%0.02;
 
 
 %%%%%%%%%%%%%%%%%%%%% Initial guess %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-init_guess = true;
 if init_guess 
     load guess_0_1_tot_tris.mat guess_0_1_tot_tris % guess_0_1colloc.mat for whole track
+    %fileparts(which('guess_0_1_tot_tris.mat'))
     guess = guess_0_1_tot_tris;    
 end
 
@@ -40,7 +48,6 @@ alfa_stationary = 0.3;
 eta = 0.85;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fileparts(which('guess_0_1_tot_tris.mat'))
 %%%%%%%%%%%%%%%%%%%%% Tolerance for X, U, Z %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 epsilon_state = 0.01*ones(nx,1);      % define error tolerance for states
 epsilon_control = 0.001*ones(nu,1);   % define error tolerance for controls

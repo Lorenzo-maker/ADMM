@@ -1,4 +1,5 @@
 %% ADMM main instance script
+restoredefaultpath
 clear all
 clc
 close all
@@ -8,6 +9,7 @@ savepath = 'Results\1500_4_81'; % for results path
 
 %% Path
 
+addpath(genpath('../Casadi'));
 addpath('communication_functions');
 addpath(genpath('Casadi'));
 addpath(genpath('Classes'));
@@ -16,7 +18,6 @@ addpath(genpath('ADMM_functions'));
 addpath(genpath('Data'));
 addpath(genpath('scripts'));
 addpath(genpath('utils'));
-addpath(genpath('Extra'));
 
 import casadi.*
 
@@ -222,7 +223,7 @@ while ~convergence % test di convergenza del consenso
         
         sol_struct{kk} = solutions{kk};
         
-        if ADMM_iteration == 2 %1
+        if ADMM_iteration == ITER_start  %1
             J0(kk) = full(solutions{kk}.f);
         end        
         
@@ -261,12 +262,12 @@ while ~convergence % test di convergenza del consenso
             % sovrapposizione corrente dal consenso corrente
             %error{i} = (X_overlap - Z{i});
             
-            if ADMM_iteration == 2
+            if ADMM_iteration == ITER_start 
                 RHO_tail(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
                 RHO_tail_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
             end
             
-            if all(conv{i}) == false && ADMM_iteration > 1
+            if all(conv{i}) == false && ADMM_iteration >= ITER_start 
                 RHO_tail(i) = updateRHO(RHO_tail(i), X_overlap, Z{i}, Zprevious{i}(end - elemOverlap + 1 : end),  Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
             end
             
@@ -293,12 +294,12 @@ while ~convergence % test di convergenza del consenso
             % sovrapposizione corrente dal consenso corrente
             %error{i} = (X_overlap - Z{i});
             
-            if ADMM_iteration == 2
+            if ADMM_iteration == ITER_start 
                 RHO_head(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4   error{i}
                 RHO_head_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4  error{i}                 
             end
             
-            if all(conv{i}) == false && ADMM_iteration > 1
+            if all(conv{i}) == false && ADMM_iteration >= ITER_start 
                 RHO_head(i) = updateRHO(RHO_head(i), X_overlap, Z{i}, Zprevious{i}(1:elemOverlap),  Y{i}(1:elemOverlap), ADMM_iteration);
             end
             
@@ -336,14 +337,14 @@ while ~convergence % test di convergenza del consenso
             % sovrapposizione corrente dal consenso corrente
             %error{i} = (X_overlap - Z{i});
             
-            if ADMM_iteration == 2
+            if ADMM_iteration == ITER_start 
                 RHO_tail(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
                 RHO_tail_0(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
                 RHO_head(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}
                 RHO_head_0(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}                
             end
             
-            if all(conv{i}) == false && ADMM_iteration > 1
+            if all(conv{i}) == false && ADMM_iteration >= ITER_start 
                 RHO_head(i) = updateRHO(RHO_head(i), X_head, Zhead, Zprevious{i}(1:elemOverlap), Y{i}(1:elemOverlap), ADMM_iteration);
                 RHO_tail(i) = updateRHO(RHO_tail(i), X_tail, Ztail, Zprevious{i}(end - elemOverlap + 1 : end), Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
             end
@@ -389,10 +390,10 @@ while ~convergence % test di convergenza del consenso
     end
 
     % To avoid new Z and Y after the preliminary optimization
-    if ADMM_iteration < 2
+    if ADMM_iteration < ITER_start
         Z = Z00;
         Y = Y00;
-    elseif ADMM_iteration == 2
+    elseif ADMM_iteration == ITER_start 
         Z = Znext;
         Y = Y00;
     else

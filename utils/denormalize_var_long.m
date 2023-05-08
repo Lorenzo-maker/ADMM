@@ -2,7 +2,7 @@ function [states_sol, control_sol, algebraic_sol] = denormalize_var_long(X, Npro
 %
 % x_unscaled = denormalize_var(x_scaled)
 %
-car_parameters_ocp;
+%car_parameters_ocp;
 
 % concatenate solutions
 sol = [];

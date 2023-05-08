@@ -1,4 +1,4 @@
-function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, o, nx, nu, nz, d, dalfa)
+function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, o, nx, nu, nz, d, dalfa, scale)
 %
 % [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, nx, nu, nz, d)
 %
@@ -13,10 +13,10 @@ function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS,
 %         CONS_Z = cell with unscaled consensus algebraic variables
 %
 
-car_parameters_ocp;
-W_scale = [ep_scale; ef_scale; d_scale; theta_scale; phi_scale; alfa_dot_scale; ep_dot_scale; ef_dot_scale; d_dot_scale; theta_dot_scale; phi_dot_scale];
-U_scale = [Fx_scale; Fy_scale; Fz_scale; Mx_scale; My_scale; Mz_scale; delta_scale];
-Z_scale = [Fz_scale;Fz_scale;Fz_scale;Fz_scale;Fy_scale; Fy_scale; Fx_scale; Fx_scale];
+
+W_scale = scale.x;
+U_scale = scale.u;
+Z_scale = scale.z;
 
 X = cell(length(W), 1);
 U = cell(length(W), 1);

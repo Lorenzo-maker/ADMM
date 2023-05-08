@@ -1,4 +1,5 @@
 %% ADMM main instance script
+restoredefaultpath
 clear all
 clc
 close all
@@ -8,7 +9,7 @@ working_dir = pwd;
 
 %% path
 
-addpath(genpath('Casadi'));
+addpath(genpath('../Casadi'));
 addpath(genpath('Classes'));
 addpath(genpath('Track'));
 addpath(genpath('ADMM_functions'));
@@ -84,6 +85,7 @@ tic
                                         o, id,...
                                         ID_instance, d,...
                                         init_subrange,...
+                                        alpha_vec,...
                                         IPOPT_opt);
 time_build = toc; % may be way faster with map class
 
@@ -110,7 +112,6 @@ time_solve = toc;
 X = full(solutions.x);
 
 %% post process
-build_car;
 post_process;
 
 %% Save results
