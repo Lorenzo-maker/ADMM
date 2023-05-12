@@ -2,8 +2,10 @@
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
 addpath(genpath('Model_script/Point'));
-homotopy = false;
+homotopy = true;
 init_guess = false;
+adaptive_mesh = false;
+split_manual = false;
 if homotopy
     ITER_start = 2; %last homotopy iteration (2 for ABA)
 else
@@ -20,14 +22,26 @@ d = 2;              % number of collocation points
 %%%%%% check discretization type and define final alpha %%%%%%       
 alpha_numeric = true;
 
-global alfa_end
+alfa_in = 0;
 alfa_end = 1;
-dalfa = alfa_end/(Nsteps/lap);
 
 %%%%%%%% Scaling for variables and variables size %%%%%%%%%%%%%%%
+if adaptive_mesh
+    alpha_vec_lap = trackCurvatureAdaptiveMesh(pista, 5, 3, 1, 5,'alpha_in',alfa_in, 'alpha_end', alfa_end);
+    Nsteps = length(alpha_vec_lap) - 1;
+    Nsteps = Nsteps*lap;
+else
+    alpha_vec_lap = linspace(alfa_in, alfa_end, (Nsteps/lap + 1));
+end
 
-alpha_vec = linspace(0,alfa_end, Nsteps+1);
-car_parameters_ocp; 
+if lap > 1
+    alpha_vec = repmat(alpha_vec_lap(1:end-1), 1, lap-1);
+    alpha_vec = [alpha_vec, alpha_vec_lap];
+else
+    alpha_vec = alpha_vec_lap;%linspace(0, alfa_end, Nsteps + 1);
+end
+car_parameters_ocp;
+
 
 %%%%%%%%%%%%%%%%%%%%% rho parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 rho_scale_head = 1;%0.01; % scaling factor for rho initialization   

@@ -9,6 +9,7 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     
     %% Other script
     import casadi.*
+    lap = length(find(diff(alpha_vec) < 0)) + 1;
     car_parameters_ocp;
     car = vehicle_casadi('point-mass', data);
     alfa_grid = alfarange;
@@ -18,14 +19,19 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     ts_grid = full(pista.fun_ts(alfa_grid));
     ts_grid(3,:) = 0;
     ts_grid = ts_grid./vecnorm(ts_grid);
-    if isempty(ID.H{problem_number})
-        psi_grid = psi_grid(1:ID.T{problem_number}(end));
-    elseif isempty(ID.T{problem_number})
-        psi_grid = psi_grid(ID.H{problem_number}(1):end);
-    else
-        psi_grid = psi_grid(ID.H{problem_number}(1):ID.T{problem_number}(end));
+    if length(ID.H) > 1
+        if isempty(ID.H{problem_number}) && isempty(ID.h{problem_number})
+            out = [ID.T{problem_number},ID.t{problem_number}];
+            psi_grid = psi_grid(1:max(out));
+        elseif isempty(ID.T{problem_number}) && isempty(ID.t{problem_number})
+            in = [ID.H{problem_number},ID.h{problem_number}];
+            psi_grid = psi_grid(min(in):end);
+        else
+            in = [ID.H{problem_number},ID.h{problem_number}];
+            out = [ID.T{problem_number},ID.t{problem_number}];
+            psi_grid = psi_grid(min(in):max(out));
+        end
     end
-    
     %psi_grid = atan_track(ts_grid, 'clockwise');
     %% Construct NLP
     if problem_number > 1
@@ -69,7 +75,8 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
        pb.append_g(car.F(pb.xc(:,i), pb.u, pb.z)*pb.z(5)*car.data.Z_scale(5) - pb.xp(:,i).*car.data.X_scale, zeros(car.nx,1), zeros(car.nx,1)) ;
     end
     xdot = car.F(pb.x, pb.u, pb.z);
-    pb.Jj = (pb.z(5)*car.data.Z_scale(5))^2 + 0.1*(pb.u(2)*car.data.U_scale(2))^2 + 0.01*xdot(2)^2 + 1*(pb.z_1(2)-pb.z(2))^2;
+    pb.Jj = activation_opt*((pb.z(5)*car.data.Z_scale(5))^2 + 0.1*(pb.u(2)*car.data.U_scale(2))^2 + 0.01*xdot(2)^2 + 1*(pb.z_1(2)-pb.z(2))^2);
+    pb.Jj = pb.Jj + activation_start*((pb.x(1)*X_scale(1) - 20)^2 + (pb.z(4)*Z_scale(4))^2);
     pb.append_g(pb.xc_end - pb.x, zeros(nx,1), zeros(nx, 1));
 
     % pb.append_g((pb.x - pb.x_1).*data.X_scale - xdot.*pb.z(5)*data.Z_scale(5), zeros(car.nx,1), zeros(car.nx,1))
@@ -81,7 +88,6 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     % Algebraic equations constraints
     pb.append_g(car.Eq(pb.x, pb.u, pb.z), zeros(car.neq,1), zeros(car.neq,1));
    
-    
     % Build map function 
     pb.build_map;
     % Build g 
@@ -146,7 +152,7 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     pb.J = pb.J + activation.*(Jc);
     pb.p = [Zcons; Ycons; pb.p];
     
-   
+    
     % Create an NLP solver 
     prob = struct('f', pb.J, 'x', pb.w, 'g', pb.g, 'p', pb.p);
     

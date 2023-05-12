@@ -17,19 +17,18 @@ addpath(genpath('Data'));
 addpath(genpath('scripts'));
 addpath(genpath('utils'));
 addpath(genpath('Extra'));
-import casadi.*
 
 %% Create track
 import casadi.*
 
-%pista = track_fun(1, '3D', 1, 'end', 500, 'degree', 4);
-load('Data\pista_original_2.mat');
-
-pista.residual;
+% %pista = track_fun(1, '3D', 1, 'end', 500, 'degree', 4);
+% load('Data\pista_original_2.mat');
+% pista.residual;
 
 %pista = track2casadiSpline(pista);
-
-disp(['fitting error is ', num2str(full(pista.tot_error))])
+load('Data\track_stored.mat');
+pista = track_stored{1};
+% disp(['fitting error is ', num2str(full(pista.tot_error))])
 
 save('Data\pista.mat', 'pista');
 %% settings
@@ -54,16 +53,16 @@ IPOPT_opt = struct( ...
     %'mu_strategy', 'adaptive', ...
 
 Nproblems = 1; 
-Nsteps_0 = Nsteps/lap;
-Nsteps = Nsteps + 1;
+% Nsteps_0 = Nsteps/lap;
+% Nsteps = Nsteps + 1;
 
-if lap > 1
-    alpha_vec_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
-    alpha_vec = repmat(alpha_vec_lap(1:end-1), 1, lap-1);
-    alpha_vec = [alpha_vec, alpha_vec_lap];
-else
-    alpha_vec = linspace(0, alfa_end, Nsteps);
-end
+% if lap > 1
+%     alpha_vec_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
+%     alpha_vec = repmat(alpha_vec_lap(1:end-1), 1, lap-1);
+%     alpha_vec = [alpha_vec, alpha_vec_lap];
+% else
+%     alpha_vec = linspace(0, alfa_end, Nsteps);
+% end
     
 %alpha_vec = linspace(0, alfa_end, Nsteps+1);
 
@@ -78,11 +77,15 @@ id.t{1} = [];
 id.h{1} = [];
 ID.t{1} = [];
 ID.h{1} = [];
+ID.H{1} = [];
+ID.T{1} = [];
+id.H{1} = [];
+id.T{1} = [];
 %% problem creation and solution
 tic
 [problem, problemData] = sub_opti_map(alpha_vec,...                                        
                                         pista,...
-                                        o, id,...
+                                        o, id, ID,...
                                         ID_instance, d,...
                                         init_subrange,...
                                         alpha_vec,...

@@ -23,33 +23,47 @@ import casadi.*
 
 %% Create track
 % pista = track_fun(1, '3D', 1, 'end', 700,'degree',4);
+
+%%% Load Nurburgring
 warning off
 load('Data\pista_original_2.mat');
 warning on
 pista.residual;
 
-%pista = track2casadiSpline(pista);
 
+%%% Load saved CasADi tracks
+% load('Data\track_stored.mat');
+% pista = track_stored{3};
 disp(['fitting error is ', num2str(full(pista.tot_error))])
 
 save('Data\pista.mat', 'pista');
 
 %% load ADMM settings
-ADMM_batch_settings; % most of the settings are here (also IPopt options)
+ADMM_batch_settings; % most of the settings are here (also IPOPT options)
 
-if o > 0 
-    elemOverlap = (o*(nx + nu + nz)+nx);
+% Run track plot with alpha index
+if split_manual    
+    figure(100)
+    lap_alpha = alpha_vec(1:Nsteps/lap);
+    dataxyz = full(pista.fun_pos(lap_alpha));
+    p = plot(dataxyz(1,:),dataxyz(2,:));
+    axis('equal')
+    dtRow = [dataTipTextRow("alpha", lap_alpha), dataTipTextRow("alphaindex", linspace(1,length(lap_alpha),length(lap_alpha)))];
+    datatip(p);
+    p.DataTipTemplate.DataTipRows(end+1:end+2) = dtRow;
+    disp('pick the value from plot only for 1 lap (other lap points are added automatically)')
+    prompt = ['Pick value data for ', num2str(Nproblems/lap), ' subproblems = '];
+    manual_index = input(prompt);
+    save('Data\manual_index.mat', 'manual_index');
 else
-    elemOverlap = nx;
+    manual_index = [];
 end
 
 J0 = zeros(1, Nproblems);
-[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap);
+[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
 
 % create problems
-%problem = cell(Nproblems, 1);
 solver_info = cell(Nproblems, 1);
-%problemData = cell(Nproblems, 1);
 sol_struct = cell(Nproblems, 1);
 RHO_head = 1.*ones(Nproblems, 1); % penalty head
 RHO_head_0 = 1.*ones(Nproblems, 1); % penalty head 0
@@ -57,7 +71,6 @@ RHO_tail = 1.*ones(Nproblems, 1); % penalty tail
 RHO_tail_0 = 1.*ones(Nproblems, 1); % penalty tail 0
 previousConsErr = 0;
 
-%N_OCP = 0;
 for i = 1:Nproblems
 
     alpha_subrange{i} = round(alpha_subrange{i}, 15); % elemOverlap need to be > nx
@@ -135,6 +148,9 @@ parfor i = 1:Nproblems
 
     mkdir(sprintf('%s\\Temp\\SubInstance_%i', working_dir, i));
     copyfile('Data\pista.mat',sprintf('Temp\\SubInstance_%i\\pista.mat', i));
+    if split_manual
+        copyfile('Data\manual_index.mat',sprintf('Temp\\SubInstance_%i\\manual_index.mat', i));   
+    end
     waiting_filename{i} = create_waiting_function(i);
     write_convergence(i, convergence);
     write_consensus(i, Z{i}, Y{i}, [RHO_head(i); RHO_tail(i)]);
@@ -209,7 +225,6 @@ while ~convergence % test di convergenza del consenso
         
          [solutions{kk}, solver_info{kk}] = readSolutions(kk);
         
-        %X{kk} = full(solutions{kk}.x);
         %reshape solution to delete collocation points
         %%%%% assumption d is equal for every subproblem for now...%%%%
         X{kk} = [];
@@ -237,10 +252,8 @@ while ~convergence % test di convergenza del consenso
         % aggiorno il consenso locale
         if i == 1 % no head
             
-            %X_tail = X{i}(end - (nx + (floor(overlap/2) + 1)*(nx + nu + nz))+1: end - (nx + floor(overlap/2 + 1)*(nx + nu + nz))+(nx+nu+nz+nx));
             X_tail = X{i}((id.t{i}(1)-1)*(nx+nu+nz)+1:(id.t{i}(end)-1)*(nx+nu+nz)+nx);
             X_head_next = X{i+1}((id.h{i+1}(1)-1)*(nx+nu+nz)+1:(id.h{i+1}(end)-1)*(nx+nu+nz)+nx);            
-            %X_head_next = X{i+1}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));
             Y_tail = Y{i};
             if Nproblems > 2
                 Y_head_next = Y{i+1}(1: length(Y{i+1})/2);
@@ -260,14 +273,13 @@ while ~convergence % test di convergenza del consenso
             
             % aggiorno l'errore inteso come differenza della soluzione di
             % sovrapposizione corrente dal consenso corrente
-            %error{i} = (X_overlap - Z{i});
             
             if ADMM_iteration == ITER_start 
                 RHO_tail(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
                 RHO_tail_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
             end
             
-            if all(conv{i}) == false && ADMM_iteration >= ITER_start 
+            if all(conv{i}) == false && ADMM_iteration > ITER_start 
                 RHO_tail(i) = updateRHO(RHO_tail(i), X_overlap, Z{i}, Zprevious{i}(end - elemOverlap + 1 : end),  Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
             end
             
@@ -280,7 +292,6 @@ while ~convergence % test di convergenza del consenso
             
         elseif i == Nproblems % no tail
             
-            %X_overlap = X{i}(floor(overlap/2)*(nx+nu+nz)+1: floor(overlap/2)*(nx+nu+nz)+(nx+nu+nz+nx));    
             X_overlap = X{i}((id.h{i}(1)-1)*(nx+nu+nz)+1:(id.h{i}(end)-1)*(nx+nu+nz)+nx);   
             error{i} = (X_overlap - Z{i});
             
@@ -299,7 +310,7 @@ while ~convergence % test di convergenza del consenso
                 RHO_head_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4  error{i}                 
             end
             
-            if all(conv{i}) == false && ADMM_iteration >= ITER_start 
+            if all(conv{i}) == false && ADMM_iteration > ITER_start 
                 RHO_head(i) = updateRHO(RHO_head(i), X_overlap, Z{i}, Zprevious{i}(1:elemOverlap),  Y{i}(1:elemOverlap), ADMM_iteration);
             end
             
@@ -335,7 +346,6 @@ while ~convergence % test di convergenza del consenso
             
             % aggiorno l'errore inteso come differenza della soluzione di
             % sovrapposizione corrente dal consenso corrente
-            %error{i} = (X_overlap - Z{i});
             
             if ADMM_iteration == ITER_start 
                 RHO_tail(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
@@ -344,7 +354,7 @@ while ~convergence % test di convergenza del consenso
                 RHO_head_0(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}                
             end
             
-            if all(conv{i}) == false && ADMM_iteration >= ITER_start 
+            if all(conv{i}) == false && ADMM_iteration > ITER_start 
                 RHO_head(i) = updateRHO(RHO_head(i), X_head, Zhead, Zprevious{i}(1:elemOverlap), Y{i}(1:elemOverlap), ADMM_iteration);
                 RHO_tail(i) = updateRHO(RHO_tail(i), X_tail, Ztail, Zprevious{i}(end - elemOverlap + 1 : end), Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
             end
@@ -391,14 +401,10 @@ while ~convergence % test di convergenza del consenso
 
     % To avoid new Z and Y after the preliminary optimization
     if ADMM_iteration < ITER_start
-        Z = Z00;
-        Y = Y00;
+        Znext = Z00;
+        Ynext = Y00;
     elseif ADMM_iteration == ITER_start 
-        Z = Znext;
-        Y = Y00;
-    else
-        Z = Znext;
-        Y = Ynext;
+        Ynext = Y00;
     end
     
     % Verifica convergenza
@@ -422,6 +428,8 @@ while ~convergence % test di convergenza del consenso
     Z_1 = Zprevious;
     Zprevious = Znext;
     Yprevious = Ynext;
+    Z = Znext;
+    Y = Ynext;
     previousConsErr = consErr;
     ADMM_iteration = ADMM_iteration + 1;
     Xinter{ADMM_iteration} = X;

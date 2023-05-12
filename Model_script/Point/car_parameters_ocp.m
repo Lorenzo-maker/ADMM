@@ -8,7 +8,29 @@ ts_grid = full(pista.fun_ts(alfa_grid));
 ts_grid(3,:) = 0;
 ts_grid = ts_grid./vecnorm(ts_grid);
 psi_grid = atan_track(ts_grid, 'clockwise');
+index0 = find(alfa_grid == 0);
+if length(index0) > 1
+    psi_laps = psi_grid(1:index0(2)-1);
+    psi_lap = psi_grid(1:index0(2)-1);
+    shift = psi_grid(index0(2)-1) - psi_grid(1);   
+    for j = 2:length(index0)
+        psi_laps = [psi_laps, psi_lap + (j-1)*shift];
+    end
+    psi_laps = [psi_laps, psi_lap(end) + (j-1)*shift];
+    psi_grid = psi_laps;
+end
 
+% if lap > 1
+%     model.track.psi_grid_lap = atan_track(model.track.ts_grid(:,end - model.opt.dpts/lap  : end), track.type);
+%     shift = model.track.psi_grid_lap(model.opt.dpts/lap) - model.track.psi_grid_lap(1);
+%     model.track.psi_grid = model.track.psi_grid_lap(1:model.opt.dpts/lap);
+%     for i = 1:lap-1
+%         model.track.psi_grid = [model.track.psi_grid, i*shift + model.track.psi_grid_lap(1:model.opt.dpts/lap)];       
+%     end
+%     model.track.psi_grid = [model.track.psi_grid, i*shift + model.track.psi_grid_lap(end)];
+% else
+%     model.track.psi_grid = atan_track(model.track.ts_grid, track.type);
+% end
 %% Dati
 data.rho         = 1.2073;                    % air density
 data.S           = 1.4;                       % front area
@@ -38,7 +60,7 @@ data.x_scale = max(abs(pos_grid(1,:)));
 data.y_max = max(pos_grid(2,:))+100;
 data.y_min = min(pos_grid(2,:))-100;
 data.y_scale = max(abs(pos_grid(2,:)));
-data.psi_scale = 4*pi;
+data.psi_scale = 6*pi + max(lap-2,0)*2*pi;
 data.Fz_scale = data.m*data.G + 0.5*data.rho*data.S*data.cz*data.Vmax^2;
 data.Fx_scale = data.Fz_scale*data.mu_x;
 data.rp_scale = 10;
@@ -58,3 +80,5 @@ scale.z = Z_scale;
 nx = length(data.X_scale);
 nu = length(data.U_scale);
 nz = length(data.Z_scale);
+
+

@@ -3,47 +3,33 @@ set(groot, 'defaultAxesTickLabelInterpreter','latex');
 set(groot, 'defaultLegendInterpreter','latex');
 set(0,'defaultTextInterpreter','latex');
 
-
+car_check = exist('car', 'var');
+if ~car_check
+    build_car;
+end
 % Nsteps = Nsteps + 1;
-alpha_vec2 = [];
-kk = 0;
+
+kk = 1;
+index0 = find(alpha_vec == 0);
+if lap > 1
+    alpha_vec2 = alpha_vec(1:index0(2)-1);
+    while kk < lap
+        alpha_vec2 = [alpha_vec2, alpha_vec(1:index0(2)-1) + kk];
+        kk = kk + 1;
+    end
+    alpha_vec2 = [alpha_vec2, alpha_vec(end) + (kk-1)];
+else
+    alpha_vec2 = alpha_vec;
+end
+
+
 if Nproblems > 1
-    %[index_consensus, index_end] = alphaSubToIndex(alpha_subrange, overlap, Nproblems, alfa_end, Nsteps+1);
     Nsteps_0 = Nsteps/lap;
     [X_sol, U_sol, Z_sol] = denormalize_var_long(X, Nproblems, nx, nu, nz, id);
-    if lap > 1
-        alpha_vec_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
-        alpha_vec = repmat(alpha_vec_lap(1:end-1), 1, lap-1);
-        alpha_vec = [alpha_vec, alpha_vec_lap];
-        while kk < lap
-            alpha_vec2 = [alpha_vec2, alpha_vec_lap(1:end-1) + kk];
-            kk = kk + 1;
-        end
-        alpha_vec2(end+1) = lap;
-    else
-        alpha_vec = linspace(0, alfa_end, Nsteps+1);
-        alpha_vec2 = alpha_vec;
-    end
-    %alpha_vec = linspace(0, alfa_end, Nsteps+1);
     X_sol = [alpha_vec; X_sol].*[1;X_scale];
     U_sol = U_sol.*U_scale;
     Z_sol = Z_sol.*Z_scale;
 else
-    if lap > 1
-        alpha_vec_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
-        alpha_vec = repmat(alpha_vec_lap(1:end-1), 1, lap-1);
-        alpha_vec = [alpha_vec, alpha_vec_lap];
-        while kk < lap
-            alpha_vec2 = [alpha_vec2, alpha_vec_lap(1:end-1) + kk];
-            kk = kk + 1;
-        end
-        alpha_vec2(end+1) = lap;
-    else
-        alpha_vec = linspace(0, alfa_end, Nsteps);
-        alpha_vec2 = alpha_vec;
-    end
-    %alpha_vec = linspace(0, alfa_end, Nsteps+1);
-    alpha_vec = linspace(0, alfa_end, Nsteps);
     x_init = X(1:nx);
     x_other = reshape(X(nx+1:end), nu+nz+nx*(d+1), []);
     if alpha_numeric
@@ -57,7 +43,7 @@ else
     index_consensus = [];
 end
 
-
+dalfa = diff(alpha_vec2);
 time_opt = cumsum((1./X_sol(7,2:end)).*dalfa); % non sono sicuro di questo calcolo
 
 % compute twist

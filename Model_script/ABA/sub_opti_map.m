@@ -4,7 +4,13 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
 % tail (no controls, no algebraic variables)
 
     %% Discretization
-    dalfa = round(alfarange(2) - alfarange(1),15);
+    pre = diff(alfarange);
+    index = find(pre<0);
+    if ~isempty(index)
+        pre(index) = 1-alfarange(index);
+    end
+    dalfa_vec = pre;
+    %dalfa_vec = diff(alfarange);%round(alfarange(2) - alfarange(1),15);
     N = length(alfarange)-1;
     
     %% Other script
@@ -14,15 +20,17 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     common_ocp;
 
     %% Import initial guess
-    guess_0 = init_subrange;
-    guess_0.q = guess_0.q(:, 2:end); % remove alpha from guess
-    X_0 = guess_0.q(1,:)'./X_scale; 
-    guess_0.q = guess_0.q;
-%     X_0 = zeros(nx,1);
-%     X_0(3) = -0.022;
-%     X_0(6) = 6e-4;
-%     X_0 = X_0./X_scale;
-    
+    if ~isempty(init_subrange)
+        guess_0 = init_subrange;
+        guess_0.q = guess_0.q(:, 2:end); % remove alpha from guess
+        X_0 = guess_0.q(1,:)'./X_scale; 
+        guess_0.q = guess_0.q;
+    else
+        X_0 = zeros(nx,1);
+        X_0(3) = -0.022;
+        X_0(6) = 6e-4;
+        X_0 = X_0./X_scale;
+    end
     %% Construct NLP
     Xb.lb = X_lb;
     Xb.ub = X_ub;
@@ -39,16 +47,16 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     Zb.lb = Z_lb;
     Zb.ub = Z_ub;
     np = 6;
-    Npg = (4*4 + 6 + 6)*(d+2);
+    Npg = (4*4 + 6 + 6 + 1)*(d+2);
     Npgb = 2;
     Pdata = struct;
-    Pdata.Pg = zeros((16 + 6 + 6)*(d+2), N);
+    Pdata.Pg = zeros((16 + 6 + 6 + 1)*(d+2), N);
     for k = 1:N
-        Pdata.Pg(1:(16+6+6),k) = [reshape(g_gs_num(:, :, k),16,1); Jac_num(:, k); Jac_der_num(:, k)];
+        Pdata.Pg(1:(16+6+6+1),k) = [reshape(g_gs_num(:, :, k),16,1); Jac_num(:, k); Jac_der_num(:, k); dalfa_vec(k)];
         for j = 1:d
-            Pdata.Pg((16+6+6) + (j-1)*(16+6+6) + 1:(16+6+6) + j*(16+6+6),k) = [g_gs_colloc{k, j}(:); Jac_colloc{k, j}; Jac_der_colloc{k, j}];
+            Pdata.Pg((16+6+6+1) + (j-1)*(16+6+6+1) + 1:(16+6+6+1) + j*(16+6+6+1),k) = [g_gs_colloc{k, j}(:); Jac_colloc{k, j}; Jac_der_colloc{k, j}; dalfa_vec(k)];
         end
-        Pdata.Pg(end-(16+6+6)+1:end,k) = [reshape(g_gs_num(:, :, k+1),16,1); Jac_num(:, k+1); Jac_der_num(:, k+1)];
+        Pdata.Pg(end-(16+6+6+1)+1:end,k) = [reshape(g_gs_num(:, :, k+1),16,1); Jac_num(:, k+1); Jac_der_num(:, k+1); dalfa_vec(k)];
     end
     pos = pista.fun_pos(alfarange);
     Pdata.Pgb = [(pos(5,2:end) - t/2); pos(5, 2:end) - t/2]./ep_scale;
@@ -65,23 +73,30 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     activation_start = pb.p(6);
     RHO_head = pb.p(2);
     RHO_tail = pb.p(3);
-    
-%     guess_0.q(:,1) = 0;
-%     guess_0.q(:,7) = 0;
+
     
     % Initial guess
     for k = 1:N
         
         V0 = Vi;
         X_0 = zeros(11,1);
-        X_0(3) = mean(guess_0.q(:,3))/X_scale(3);%-0.022/X_scale(3);%
-        X_0(6) = mean(guess_0.q(:,6))/X_scale(6);%6e-04/X_scale(6);%mean(guess_0.q(:,6))/X_scale(6);%dalfa/(ds/(V0))/X_scale(6);
+        if ~isempty(init_subrange)
+            X_0(3) = mean(guess_0.q(:,3))/X_scale(3);%-0.022/X_scale(3);%
+            X_0(6) = mean(guess_0.q(:,6))/X_scale(6);%6e-04/X_scale(6);%mean(guess_0.q(:,6))/X_scale(6);%dalfa/(ds/(V0))/X_scale(6);
+        else
+            X_0(3) = -0.022/X_scale(3);
+            X_0(6) = 6e-04/X_scale(6);
+        end
         Fz0 = car.M(1,1)*9.81 + 0.5*rho*(cz1+cz2)*S*V0^2;
         U_0 = [0.5*rho*cx*S*V0^2; 0; car.M(1,1)*9.81 + 0.5*rho*(cz1+cz2)*S*V0^2; 0; 0; 0; 0]./U_scale;
         Z_0 = [Fz0/4*ones(4,1); 0; 0; 0.5*rho*cx*S*V0^2; 0]./Z_scale;
         pb.w0 = [pb.w0; U_0; Z_0; repmat(X_0, d+1, 1)];
     end
-    pb.w0 = [guess_0.q(1,:)'./X_scale; pb.w0];%[X_0./X_scale; pb.w0]; %
+    if ~isempty(init_subrange)
+        pb.w0 = [guess_0.q(1,:)'./X_scale; pb.w0];
+    else
+        pb.w0 = [X_0./X_scale; pb.w0];
+    end
     
     % Start constraint
     Vk = car.axle_twist(g_gs_num(:, :, 1), Jac_num(:, 1), Jac_der_num(:, 1), pb.x_1.*X_scale); 
@@ -93,7 +108,9 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     pb.append_g(pb.x_1(1), -(pos(5,1)-t/2)/ep_scale, (pos(5,1)-t/2)/ep_scale, 'start');
      
     % Collocation
-    data_num = reshape(pb.pg, 16+6+6, d+2);
+    data_num = reshape(pb.pg, 16+6+6+1, d+2);
+    dalfa = data_num(end,1);
+    data_num = data_num(1:end-1,:);
     for i = 1:d
         g_gs_colloc_j = reshape(data_num(1:16, i+1),4,4);
         Jac_colloc_j = (data_num(16 + 1: 16 + 6, i+1));
@@ -205,6 +222,7 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     fdtdak = 1/(pb.X(6,1)*X_scale(6) + tol);
     V1 = car.axle_twist(g_gs_num(:, :, 2), Jac_num(:, 2), Jac_der_num(:, 2), pb.X(:,1).*X_scale);
     V0 = car.axle_twist(g_gs_num(:, :, 1), Jac_num(:, 1), Jac_der_num(:, 1), pb.X_1(:,1).*X_scale);
+    dalfa = dalfa_vec(1);
     pb.J = pb.J + activation_opt*((fdtdak*dalfa)^2 + 10*pb.X_1(10,1)^2 + 10*pb.X_1(11,1)^2 + 10*pb.X(10,1)^2 + 10*pb.X(11,1)^2 + 100*kd*(V0(2)^2 + V0(6)^2 + 100*pb.X_1(7,1)^2) + (pb.X_1(5,1)*X_scale(5))^2 + 10*(pb.X_1(4,1)*X_scale(4))^2 + 10*(pb.X_1(3,1)*X_scale(3))^2 + (pb.X(9,1)*X_scale(9))^2 + (pb.X_1(9,1)*X_scale(9))^2 + 10^-7*((V1(2) - V0(2))/dalfa)^2 + 10^-4*((V1(6) - V0(6))/dalfa)^2);
     pb.J = pb.J + activation_start*((V0(1)/20 - 1)^2 + (V1(1)/20 - 1)^2 + pb.X(1,1)^2 + 0.1*pb.X(6,1)^2);
     

@@ -366,9 +366,9 @@ Jac_der_colloc = cell(length(alfarange)-1, length(tau_colloc));
 alfa_colloc = zeros(length(alfarange)-1, d);
 for k = 1:length(alfarange)-1
     for j = 1:d
-        alfa_colloc(k,j) = min(alfarange(k) + dalfa*tau_colloc(j),1);
-        g_gs_colloc{k, j} = full(pista.fun_g_gs(min(alfarange(k) + dalfa*tau_colloc(j),1)));
-        Jac_colloc{k, j} = full(car.T_jac(min(alfarange(k) + dalfa*tau_colloc(j),1)));
-        Jac_der_colloc{k, j} = chop(full(car.T_jac_der(min(alfarange(k) + dalfa*tau_colloc(j),1))),1);
+        alfa_colloc(k,j) = min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1);
+        g_gs_colloc{k, j} = full(pista.fun_g_gs(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
+        Jac_colloc{k, j} = full(car.T_jac(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
+        Jac_der_colloc{k, j} = chop(full(car.T_jac_der(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1))),1);
     end
 end

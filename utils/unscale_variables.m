@@ -1,4 +1,4 @@
-function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, o, nx, nu, nz, d, dalfa, scale)
+function [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, o, nx, nu, nz, d, scale)
 %
 % [W, CONS, X, U, Z, CONS_X, CONS_U, CONS_Z] = unscale_variables(W, CONS, nx, nu, nz, d)
 %

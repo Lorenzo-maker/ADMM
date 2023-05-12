@@ -1,22 +1,32 @@
-function [alpha_subrange, id_start, id_end, ID, id] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap)
+function [alpha_subrange, id_start, id_end, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_range, lap, manual_index)
 %
 %
 %
 Nsteps_0 = Nsteps/lap;
 Nsteps = Nsteps + 1;
-
-if lap > 1
-    alpha_range_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
-    alpha_range = repmat(alpha_range_lap(1:end-1), 1, lap-1);
-    alpha_range = [alpha_range, alpha_range_lap];
-else
-    alpha_range = linspace(0, alfa_end, Nsteps);
-end
+% if lap > 1
+%     alpha_range_lap = linspace(0, alfa_end, (Nsteps_0 + 1));
+%     alpha_range = repmat(alpha_range_lap(1:end-1), 1, lap-1);
+%     alpha_range = [alpha_range, alpha_range_lap];
+% else
+%     alpha_range = linspace(0, alfa_end, Nsteps);
+% end
 
 % compute discretization number of each subproblem sub problems 
-alpha_subsize(1:Nproblems) = floor((Nsteps)./Nproblems);
-remainder = mod(Nsteps, Nproblems);
-alpha_subsize(1:remainder) = alpha_subsize(1:remainder) + 1;
+if isempty(manual_index)
+    alpha_subsize(1:Nproblems) = floor((Nsteps)./Nproblems);
+    remainder = mod(Nsteps, Nproblems);
+    alpha_subsize(1:remainder) = alpha_subsize(1:remainder) + 1;
+else
+    if lap == 1
+        manual_index = [0, manual_index, length(alpha_range)];
+        alpha_subsize = diff(manual_index);
+    else
+        manual_index = [0, manual_index, (length(alpha_range)-1)/lap];
+        alpha_subsize = repmat(diff(manual_index), 1, lap);
+        alpha_subsize(end) = alpha_subsize(end) + (length(alpha_range) - sum(alpha_subsize));
+    end
+end
 
 % split alpha in sub ranges
 alpha_start = 0;

@@ -19,13 +19,17 @@ addpath(genpath('utils'));
  % load global settings
 load(sprintf('Temp//SubInstance_%i//pista.mat',ID_instance))
 ADMM_batch_settings;
-
+if split_manual
+    load(sprintf('Temp//SubInstance_%i//manual_index.mat',ID_instance))
+else
+    manual_index = [];
+end
 %%%%%%%%%%%%%%%%%%%%%%%% element overlap calculation %%%%%%%%%%%%%%%%%%%%%%
 
 elemOverlap = (o*(nx + nu + nz)+nx);
 
 %%%%% Load alpha_subrange
-[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, elemOverlap, nx, alfa_end, lap);
+[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
 alpha_subrange = alpha_subrange{ID_instance};
 %%%%% Use initial guess from simulation
 if init_guess 
@@ -54,7 +58,6 @@ waiting_filename = sprintf('Temp\\%s_%i\\%s_%i.txt', 'SubInstance', ID_instance,
 %     overlap_tail = e;
 %     overlap_head = e;
 % end
-alpha_vec = linspace(0, alfa_end, Nsteps+1);
 [problem, problemData] = sub_opti_map(alpha_subrange,...                                        
                                         pista,...
                                         o, id, ID,...

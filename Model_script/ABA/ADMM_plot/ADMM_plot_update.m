@@ -26,7 +26,7 @@ for i = 1:Nproblems
     scaled_err(i) = consErr_norm{i}./sqrt(length(Z{i}));
     scaled_change(i) = consensusChange_norm{i}./sqrt(length(Z{i}));
     
-    [~, ~, states, inputs, algebr, CONS_states, CONS_inputs, CONS_algebr] = unscale_variables(X_origin, Z_1, o, nx, nu, nz, d, dalfa, scale);
+    [~, ~, states, inputs, algebr, CONS_states, CONS_inputs, CONS_algebr] = unscale_variables(X_origin, Z_1, o, nx, nu, nz, d, scale);
     
     if i == 1
         index_consensus_head = [];

@@ -23,7 +23,7 @@ for i = 1:Nproblems
     scaled_err(i) = consErr_norm{i}./sqrt(length(Z{i}));
     scaled_change(i) = consensusChange_norm{i}./sqrt(length(Z{i}));
         
-    [~, ~, states, inputs, algebr, CONS_states, CONS_inputs, CONS_algebr] = unscale_variables(X_origin, Z_1, o, nx, nu, nz, d, dalfa, scale);
+    [~, ~, states, inputs, algebr, CONS_states, CONS_inputs, CONS_algebr] = unscale_variables(X_origin, Z_1, o, nx, nu, nz, d, scale);
     
     if i == 1
         index_consensus_head = [];
@@ -92,6 +92,20 @@ for i = 1:Nproblems
             line(AX{i}(j+1), alpha_tail(1:end-1), CONS_inputs{i}(inputs_index(j-nx), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
         elseif i == Nproblems
             line(AX{i}(j+1), alpha_head(1:end-1), CONS_inputs{i}(inputs_index(j-nx), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        end
+    end
+    
+    algebraic_index = [1,2,3,4,5];
+    for j = nx+nu+1:nx+nu+nz
+        cla(AX{i}(j+1))
+        stairs(AX{i}((j+1)), alpha_subrange{i}(1:end-1), algebr{i}(algebraic_index(j-nx-nu), :));
+        if i > 1 && i < Nproblems %(i = 1 non ho head)
+            line(AX{i}(j+1), alpha_head(1:end-1), CONS_algebr{i}(algebraic_index(j-nx-nu), 1:length(alpha_head)-1), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+            line(AX{i}(j+1), alpha_tail(1:end-1), CONS_algebr{i}(algebraic_index(j-nx-nu), length(alpha_head):end), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == 1
+            line(AX{i}(j+1), alpha_tail(1:end-1), CONS_algebr{i}(algebraic_index(j-nx-nu), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
+        elseif i == Nproblems
+            line(AX{i}(j+1), alpha_head(1:end-1), CONS_algebr{i}(algebraic_index(j-nx-nu), :), 'Linestyle', 'none', 'marker', 'o', 'color', 'k');
         end
     end
 
