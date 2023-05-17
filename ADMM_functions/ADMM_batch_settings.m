@@ -1,7 +1,7 @@
 %% admm settings
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
-addpath(genpath('Model_script/Point'));
+addpath(genpath('Model_script/Hybrid'));
 homotopy = true;
 init_guess = false;
 adaptive_mesh = false;
@@ -40,6 +40,7 @@ if lap > 1
 else
     alpha_vec = alpha_vec_lap;%linspace(0, alfa_end, Nsteps + 1);
 end
+
 car_parameters_ocp;
 
 

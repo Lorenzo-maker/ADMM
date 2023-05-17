@@ -25,9 +25,8 @@ import casadi.*
 % load('Data\pista_original_2.mat');
 % pista.residual;
 
-%pista = track2casadiSpline(pista);
 load('Data\track_stored.mat');
-pista = track_stored{1};
+pista = track_stored{2};
 % disp(['fitting error is ', num2str(full(pista.tot_error))])
 
 save('Data\pista.mat', 'pista');

@@ -90,18 +90,18 @@ classdef nlp_casadi_2 < handle
         X0_num    % Numerical solution for the first nx states
         w_global  % Numerical solution for global variables
         check_x0  % value of Xb.x0 
-        colloc_type % type for collocation
+        colloc_type
     end
     
     methods
         function obj = nlp_casadi_2(nx, nu, nz, nuc, nzc, nwg, N, d, Xb, Ub, Zb, Ucb, Zcb, Wgb, Npg, Npgb, Pdata, Nthread, np, sym_type, colloc_type)
             arguments
                 nx = 1; nu = 1; nz = 1; nuc = 0; nzc = 0; nwg = 0; N = 1; d = 2; Xb = []; Ub = []; Zb = []; ...
-                Ucb = []; Zcb = []; Wgb = []; Npg = 0; Npgb = 0; Pdata = []; Nthread = 1; np = 0; sym_type = 'SX'; colloc_type = 'legendre';
+                Ucb = []; Zcb = []; Wgb = []; Npg = 0; Npgb = 0; Pdata = []; Nthread = 1; np = 0; sym_type = 'SX', colloc_type = 'legendre'; 
             end
-            import casadi.*
-            obj.colloc_type = colloc_type;
+            import casadi.*            
             obj.sym_type = sym_type;
+            obj.colloc_type = colloc_type;
             obj.Nthread = Nthread;
             obj.N = N;
             obj.d = d;           
@@ -239,6 +239,7 @@ classdef nlp_casadi_2 < handle
                 obj.Jk = obj.Jj;
             end
             obj.J_fun = Function('J_fun', {obj.x_1,obj.x, obj.xc, obj.u_1, obj.u, obj.uc, obj.z_1, obj.z, obj.zc, obj.pg, obj.p, obj.wg}, {obj.Jk});
+            %obj.J_fun_map = obj.J_fun.map(obj.N, 'thread', obj.Nthread);  
             obj.J_fun_map = obj.J_fun.map(options.JN, 'thread', obj.Nthread);  
             if strcmp(obj.sym_type, 'SXMX')
                 obj.p = MX.sym('p', obj.np);
@@ -280,10 +281,12 @@ classdef nlp_casadi_2 < handle
             arguments
                 obj; options.range = 1:obj.N;
             end
+            range_colloc = (options.range(1)*2 - 1):options.range(end)*2;
             import casadi.*
-            obj.J = sum(obj.J_fun_map(obj.X_1(:,options.range),obj.X(:,options.range),obj.Xc(:,options.range),obj.U_1(:,options.range),...
-                obj.U(:,options.range),obj.Uc(:,options.range),obj.Z_1(:,options.range),obj.Z(:,options.range),...
-                obj.Zc(:,options.range),obj.Pg(:,options.range),obj.p, obj.Wg));
+            %obj.J = sum(obj.J_fun_map(obj.X_1,obj.X,obj.Xc,obj.U_1,obj.U,obj.Uc,obj.Z_1,obj.Z,obj.Zc,obj.Pg,obj.p, obj.Wg));
+            obj.J = sum(obj.J_fun_map(obj.X_1(:,options.range),obj.X(:,options.range),obj.Xc(:,range_colloc),obj.U_1(:,options.range),...
+                obj.U(:,options.range),obj.Uc(:,range_colloc),obj.Z_1(:,options.range),obj.Z(:,options.range),...
+                obj.Zc(:,range_colloc),obj.Pg(:,options.range),obj.p, obj.Wg));
         end
         % Method to build collocation coefficient
         function col_points(obj)

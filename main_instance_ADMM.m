@@ -52,7 +52,7 @@ if split_manual
     datatip(p);
     p.DataTipTemplate.DataTipRows(end+1:end+2) = dtRow;
     disp('pick the value from plot only for 1 lap (other lap points are added automatically)')
-    prompt = ['Pick value data for ', num2str(Nproblems/lap), ' subproblems = '];
+    prompt = ['Pick ', num2str(Nproblems/lap - 1),' ', 'internal lap points = '];
     manual_index = input(prompt);
     save('Data\manual_index.mat', 'manual_index');
 else
