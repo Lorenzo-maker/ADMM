@@ -82,7 +82,7 @@ for i = 1:Nproblems
     
     % inputs plot
     inputs_index = [1,2,3];
-    for j = nx+1:nx+2
+    for j = nx+1:nx+nu
         cla(AX{i}(j+1))
         stairs(AX{i}((j+1)), alpha_subrange{i}(1:end-1), inputs{i}(inputs_index(j-nx), :));
         if i > 1 && i < Nproblems %(i = 1 non ho head)

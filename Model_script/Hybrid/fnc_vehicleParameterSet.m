@@ -43,7 +43,7 @@ model.track.ts_grid(3,:) = 0;
 model.track.ts_grid = model.track.ts_grid./vecnorm(model.track.ts_grid);
 %psi-track
 if lap > 1
-    model.track.psi_grid_lap = atan_track(model.track.ts_grid(:,end - model.opt.dpts/lap  : end), track.type);
+    model.track.psi_grid_lap = atan_track(model.track.ts_grid(:,end - model.opt.dpts/lap  : end), 'clockwise');
     shift = model.track.psi_grid_lap(model.opt.dpts/lap) - model.track.psi_grid_lap(1);
     model.track.psi_grid = model.track.psi_grid_lap(1:model.opt.dpts/lap);
     for i = 1:lap-1

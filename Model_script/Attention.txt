@@ -1,0 +1,4 @@
+Aspetti da controllare:
+- bound su psi angle (se non scala con il numero di lap l'ottimizzazione multilap fallisce)
+- clockwise or not della pista. Per il momento è impostato sempre su clockwise ma bisogna stare attenti se la pista non lo fosse
+- init_guess non esiste per i modelli eccetto per ABA

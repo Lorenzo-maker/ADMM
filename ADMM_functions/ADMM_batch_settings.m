@@ -2,7 +2,7 @@
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
 addpath(genpath('Model_script/Hybrid'));
-homotopy = true;
+homotopy = false;
 init_guess = false;
 adaptive_mesh = false;
 split_manual = false;

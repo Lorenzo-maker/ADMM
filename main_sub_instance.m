@@ -164,7 +164,7 @@ while ~convergence
         end
     else
         if ADMM_iteration == 0
-            activation = 1;
+            activation = 0;
             activation_comp = 1;%10^2;
             activation_opt = 1;
             activation_start = 0;

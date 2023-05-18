@@ -39,8 +39,8 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
         car.Xb.x0 = [];        
     else
         car.Xb.x0 = [car.data.Vi;0;0;pos_grid(1,1);pos_grid(2,1);psi_grid(1)]./car.data.X_scale;
-        car.Xb.x0_lb = [car.data.Vi;0;0;pos_grid(1,1);-pos_grid(4,1);psi_grid(1)]./car.data.X_scale;
-        car.Xb.x0_ub = [car.data.Vi;0;0;pos_grid(1,1);pos_grid(4,1);psi_grid(1)]./car.data.X_scale;
+        car.Xb.x0_lb = [car.data.Vi;0;0;pos_grid(1,1);pos_grid(2,1);psi_grid(1)]./car.data.X_scale;
+        car.Xb.x0_ub = [car.data.Vi;0;0;pos_grid(1,1);pos_grid(2,1);psi_grid(1)]./car.data.X_scale;
     end
     np = 6;
     % Numerical data for variable constraints
