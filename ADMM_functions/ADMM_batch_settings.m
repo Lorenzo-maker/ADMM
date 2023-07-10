@@ -1,7 +1,7 @@
 %% admm settings
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
-addpath(genpath('Model_script/Hybrid'));
+addpath(genpath('Model_script/ABA'));
 homotopy = false;
 init_guess = false;
 adaptive_mesh = false;

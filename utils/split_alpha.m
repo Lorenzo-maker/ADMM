@@ -45,6 +45,7 @@ for i = 1:Nproblems
     alpha_start = alpha_end;
 end
 
+% Store index of consensus mesh interval relative to the whole alphagrid
 ID.h = cell(Nproblems,1);
 ID.t = cell(Nproblems,1);
 for i = 1:Nproblems
@@ -60,29 +61,36 @@ for i = 1:Nproblems
     end
 end
 
-
+% Store index of extended H/T mesh interval relative to the whole alphagrid
 ID.H = cell(Nproblems,1);
 ID.T = cell(Nproblems,1);
 for i = 1:Nproblems
     if i == 1
         ID.H{i} = [];
-        ID.T{i} = id_end(i) - floor(o/2) + 1 :1:id_end(i) - floor(o/2) + e;
+        ID.T{i} = id_end(i) - floor(o/2) + 1 :1:min(id_end(i) - floor(o/2) + e, Nsteps);
+        %ID.T{i} = id_end(i) - floor(o/2) + 1 :1:id_end(i) - floor(o/2) + e;
     elseif i == Nproblems
-        ID.H{i} = id_start(i) + ceil(o/2) - e:1: id_start(i) + ceil(o/2) - 1;
+        ID.H{i} = max(1, id_start(i) + ceil(o/2) - e):1: id_start(i) + ceil(o/2) - 1;
+        %ID.H{i} = id_start(i) + ceil(o/2) - e:1: id_start(i) + ceil(o/2) - 1;
         ID.T{i} = [];
     else
-        ID.H{i} = id_start(i) + ceil(o/2) - e:1: id_start(i) + ceil(o/2) - 1;
-        ID.T{i} = id_end(i) - floor(o/2) + 1 :1:id_end(i) - floor(o/2) + e;
+        ID.H{i} = max(1, id_start(i) + ceil(o/2) - e):1: id_start(i) + ceil(o/2) - 1;
+        %ID.H{i} = id_start(i) + ceil(o/2) - e:1: id_start(i) + ceil(o/2) - 1;
+        ID.T{i} = id_end(i) - floor(o/2) + 1 :1:min(id_end(i) - floor(o/2) + e, Nsteps);
+        %ID.T{i} = id_end(i) - floor(o/2) + 1 :1:id_end(i) - floor(o/2) + e;
     end
 end
 
 for i = 1:Nproblems
    if i == 1
-       alpha_subrange{i} = [alpha_subrange{i}, alpha_range(id_end(i) + 1: id_end(i) + ceil(o/2) + max(0, e-o))];
+       %alpha_subrange{i} = [alpha_subrange{i}, alpha_range(id_end(i) + 1: id_end(i) + ceil(o/2) + max(0, e-o))];
+       alpha_subrange{i} = [alpha_subrange{i}, alpha_range(id_end(i) + 1: min(id_end(i) + ceil(o/2) + max(0, e-o), Nsteps))];
    elseif i == Nproblems
-       alpha_subrange{i} = [alpha_range(id_start(i) - floor(o/2) - max(0, e-o):id_start(i)-1), alpha_subrange{i}];
+       %alpha_subrange{i} = [alpha_range(id_start(i) - floor(o/2) - max(0, e-o):id_start(i)-1), alpha_subrange{i}];
+       alpha_subrange{i} = [alpha_range(max(1, id_start(i) - floor(o/2) - max(0, e-o)):id_start(i)-1), alpha_subrange{i}];
    else
-       alpha_subrange{i} = [alpha_range(id_start(i) - floor(o/2) - max(0, e-o):id_start(i)-1), alpha_subrange{i},alpha_range(id_end(i) + 1: id_end(i) + ceil(o/2) + max(0, e-o))];
+       %alpha_subrange{i} = [alpha_range(id_start(i) - floor(o/2) - max(0, e-o):id_start(i)-1), alpha_subrange{i},alpha_range(id_end(i) + 1: id_end(i) + ceil(o/2) + max(0, e-o))];
+       alpha_subrange{i} = [alpha_range(max(1,id_start(i) - floor(o/2) - max(0, e-o)):id_start(i)-1), alpha_subrange{i}, alpha_range(id_end(i) + 1: min(id_end(i) + ceil(o/2) + max(0, e-o),Nsteps))];
    end
 end
 
