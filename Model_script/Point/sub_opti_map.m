@@ -1,4 +1,4 @@
-function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, d, init_subrange, alpha_vec, opts)
+function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, d, init_subrange, alpha_vec, opts, car_extra)
     
 % in this version we overlap only one set of states at the head and the
 % tail (no controls, no algebraic variables)

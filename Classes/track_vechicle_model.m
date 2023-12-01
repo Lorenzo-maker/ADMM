@@ -17,6 +17,8 @@ classdef track_vechicle_model < handle
         V               % axle absolute twist in axle frame
         w2              % wrench in axle frame {2} [Fx; Fy; Fz; Mx; My; Mz]
         iteration = 0   % integration iteration counter
+        data            % store all extra data 
+        fun             % store all extra function
     end
     
     properties (Hidden = true) % not visible properties

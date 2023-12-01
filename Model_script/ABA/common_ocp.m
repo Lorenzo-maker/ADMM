@@ -1,6 +1,6 @@
 % Import library and global variable
 import casadi.*
-global car
+%global car
 
 % Build track
 % track = track_fun(1, '3D', 1, 600, 100); % 1-> Nurburgring (600, 100ctrl)
@@ -25,6 +25,10 @@ car.qm = (car.a2*car.q1 + car.a1*car.q2)/(car.a1+car.a2);
 car.h = hg;
 car.GM = car.h - car.qm;
 
+car.data.Pmin = Pmin;
+car.data.Pmax = Pmax;
+car.data.Vi = Vi;
+car.data.kb = kb;
 % Build inertial and structural car matrix
 k1_front = 36000;
 k2_rear = 24000;
@@ -41,11 +45,14 @@ car.computeCasadi_state_space_function_alpha_num(); %'compile', true
 
 %% numerical values of car model
 
-g_gs_num = full(pista.fun_g_gs(alfarange));
-g_gs_num = reshape(g_gs_num, 4, 4, []);
-
-Jac_num = full(car.T_jac(alfarange));
-Jac_der_num = chop(full(car.T_jac_der(alfarange)),1);
+% g_gs_num = full(pista.fun_g_gs(alfarange));
+% g_gs_num = reshape(g_gs_num, 4, 4, []);
+% car.data.g_gs_num = g_gs_num;
+% 
+% Jac_num = full(car.T_jac(alfarange));
+% Jac_der_num = chop(full(car.T_jac_der(alfarange)),1);
+% car.data.Jac_num = Jac_num;
+% car.data.Jac_der_num = Jac_der_num;
 
 %% Definition of states in CasAdi syntax
 
@@ -121,6 +128,9 @@ X_lb    = [ep_lb; ef_lb; d_lb; theta_lb; phi_lb; alfa_dot_lb; ep_dot_lb; ef_dot_
 X_ub    = [ep_ub; ef_ub; d_ub; theta_ub; phi_ub; alfa_dot_ub; ep_dot_ub; ef_dot_ub; d_dot_ub; theta_dot_ub; phi_dot_ub];
 X_scale = [ep_scale; ef_scale; d_scale; theta_scale; phi_scale; alfa_dot_scale; ep_dot_scale; ef_dot_scale; d_dot_scale; theta_dot_scale; phi_dot_scale];
 
+car.data.X_scale = X_scale;
+car.data.ep_scale = ep_scale; 
+
 %% Definition of inputs in CasAdi syntax" 
 nu = 7;  
 U = SX.sym('U', nu);
@@ -164,6 +174,10 @@ delta_ub   =  1;
 U_lb    = [Fx_lb; Fy_lb; 0*Fz_lb; 0*Mx_lb; 0*My_lb; Mz_lb; delta_lb];
 U_ub    = [Fx_ub; Fy_ub; 0*Fz_ub; 0*Mx_ub; 0*My_ub; Mz_ub; delta_ub];
 U_scale = [Fx_scale; Fy_scale; Fz_scale; Mx_scale; My_scale; Mz_scale; delta_scale];
+
+car.data.U_scale = U_scale; 
+car.data.Fy_scale = Fy_scale; 
+car.data.Mz_scale = Mz_scale; 
 
 %% Definition of algebraic parameters in CasAdi syntax" 
 nz = 8;  
@@ -213,6 +227,9 @@ Z_lb    = [Fz11_lb; Fz12_lb; Fz21_lb; Fz22_lb; Y1tot_lb; Y2tot_lb; Fxa_lb; Fxb_l
 Z_ub    = [Fz11_ub; Fz12_ub; Fz21_ub; Fz22_ub; Y1tot_ub; Y2tot_ub; Fxa_ub; Fxb_ub];
 Z_scale = [Fz_scale;Fz_scale;Fz_scale;Fz_scale;Fy_scale; Fy_scale; Fx_scale; Fx_scale];
 
+car.data.Z_scale = Z_scale; 
+car.data.Fx_scale = Fx_scale; 
+
 %% Car's dynamic (system of ODEs)"
 alpha_sym = SX.sym('alpha', 1, 1);
 qdot  = car.xdot_sym(g_gs_sym, Jac_sym, Jac_der_sym, X, U(1:end-1));
@@ -222,6 +239,7 @@ X_dot = qdot./(qdot(1)+1e-10);
 opt = struct;
 opt.cse = true;
 F = Function('F', {g_gs_sym, Jac_sym, Jac_der_sym, X, U}, {X_dot}); 
+car.fun.F = F;
 
 %% Vertical load for each tyre
 
@@ -236,12 +254,16 @@ Mzaero = Fzaero2*a2 - Fzaero1*a1;
 
 Fz11_s = (Fzij0-Fzaero)*a2/(a1+a2)/2 + Fzaero1/2 - (Myij - Mzaero)/(2*l) -(Dz_latij);%+k1_front/(k1_front+k2_rear)
 Fz11tyre = Function('Fz11tyre', {Fzij0, Fzaero1, Fzaero2, Myij, Dz_latij}, {Fz11_s}, {'Fzij0', 'Fzaero1', 'Fzaero2', 'Myij', 'Dz_latij'}, {'Fz11_s'}); 
+car.fun.Fz11tyre = Fz11tyre;
 Fz12_s = (Fzij0-Fzaero)*a2/(a1+a2)/2 + Fzaero1/2 - (Myij - Mzaero)/(2*l) +(Dz_latij);%k1_front/(k1_front+k2_rear) 
 Fz12tyre = Function('Fz12tyre', {Fzij0, Fzaero1, Fzaero2, Myij, Dz_latij}, {Fz12_s}, {'Fzij0', 'Fzaero1', 'Fzaero2', 'Myij', 'Dz_latij'}, {'Fz12_s'}); 
+car.fun.Fz12tyre = Fz12tyre;
 Fz21_s = (Fzij0-Fzaero)*a1/(a1+a2)/2 + Fzaero2/2 + (Myij - Mzaero)/(2*l) -(Dz_latij);%k2_rear/(k1_front+k2_rear)
 Fz21tyre = Function('Fz21tyre', {Fzij0, Fzaero1, Fzaero2, Myij, Dz_latij}, {Fz21_s}, {'Fzij0', 'Fzaero1', 'Fzaero2', 'Myij', 'Dz_latij'}, {'Fz21_s'}); 
+car.fun.Fz21tyre = Fz21tyre;
 Fz22_s = (Fzij0-Fzaero)*a1/(a1+a2)/2 + Fzaero2/2 + (Myij - Mzaero)/(2*l) +(Dz_latij);%k2_rear/(k1_front+k2_rear)
 Fz22tyre = Function('Fz22tyre', {Fzij0, Fzaero1, Fzaero2, Myij, Dz_latij}, {Fz22_s}, {'Fzij0', 'Fzaero1', 'Fzaero2', 'Myij', 'Dz_latij'}, {'Fz22_s'});  
+car.fun.Fz22tyre = Fz22tyre;
 
 %% Implementing tyre model Fx
 
@@ -269,6 +291,7 @@ Dx    = (PDX1 + PDX2*dfz)*Fzij;
 % 
 % Fxtyre = Function('Fxtyre', {kx, Fzij}, {Fxij}, {'kx', 'Fzij'}, {'Fxtyre'}); 
 Fxmaxij = Function('Fxmaxij', {Fzij}, {Dx}, {'Fzij'}, {'Dx'}); 
+car.fun.Fxmaxij = Fxmaxij;
 
 %% Implementing tyre model Fy
 
@@ -294,11 +317,14 @@ Fyij  = -Dy*sin(Cy*atan(By*alfay - Ey*(By*alfay - atan(By*alfay))));
 Fyij2 = -Dy*sin(Cy*atan(By*alfay - Ey2*(By*alfay - atan(By*alfay))));
 
 Fytyre = Function('Fytyre', {alfay, Fzij}, {Fyij}, {'alfay', 'Fzij'}, {'Fyij'}); 
+car.fun.Fytyre = Fytyre;
 Fytyre2 = Function('Fytyre2', {alfay, Fzij}, {Fyij2}, {'alfay', 'Fzij'}, {'Fyij2'}); 
+car.fun.Fytyre2 = Fytyre2;
 Fymaxij = Function('Fymaxij', {Fzij}, {Dy}, {'Fzij'}, {'Dy'}); 
+car.fun.Fymaxij = Fymaxij;
 Cs = Fz0*PKY1*sin(2*atan(Fzij/(Fz0*PKY2)));
 CsFz =  Function('Fymaxij', {Fzij}, {Cs}, {'Fzij'}, {'Cs'});
-
+car.fun.CsFz = CsFz;
 %% Load Transfer
 
 
@@ -314,8 +340,9 @@ alfa2 = -(Vaxle(2)-Vaxle(end)*a2)/(Vaxle(1)+tol);
 Caf = 10e3;
 Car = 5e3;
 alfa1_fun = Function('alfa1', {Vaxle, U}, {alfa1}); 
+car.fun.alfa1_fun = alfa1_fun;
 alfa2_fun = Function('alfa2', {Vaxle, U}, {alfa2}); 
-
+car.fun.alfa2_fun = alfa2_fun;
 % Fyn = Fytyre(alfa1_fun(X,U), Fz11tyre(Fz_actual, Dz_long, Dz_lat)) + Fytyre(alfa1_fun(X,U), Fz12tyre(Fz_actual, Dz_long, Dz_lat)) + Fytyre(alfa2_fun(X,U), Fz21tyre(Fz_actual, Dz_long, Dz_lat)) + Fytyre(alfa2_fun(X,U), Fz22tyre(Fz_actual, Dz_long, Dz_lat));
 % Mzn = (Fytyre(alfa1_fun(X,U), Fz11tyre(Fz_actual, Dz_long, Dz_lat)) + Fytyre(alfa1_fun(X,U), Fz12tyre(Fz_actual, Dz_long, Dz_lat)))*a1 - (Fytyre(alfa2_fun(X,U), Fz21tyre(Fz_actual, Dz_long, Dz_lat)) + Fytyre(alfa2_fun(X,U), Fz22tyre(Fz_actual, Dz_long, Dz_lat)))*a2;
 
@@ -347,7 +374,8 @@ Dz_2 = (Delta_rs*(car.k_phi2/car.k_phi) + Y2*car.q2)/t;
 Dz_1 = (Delta_rs*(car.k_phi1/car.k_phi) + Y1*car.q1)/t;
 DZ_2 = Function('DZ_2', {Mx_s, Y1, Y2}, {Dz_2}, {'Mx_s', 'Y1', 'Y2'}, {'Dz_2'});
 DZ_1 = Function('DZ_1', {Mx_s, Y1, Y2}, {Dz_1}, {'Mx_s', 'Y1', 'Y2'}, {'Dz_1'});
-
+car.fun.DZ_1 = DZ_1;
+car.fun.DZ_2 = DZ_2;
 
 % Funzione segno
 arg = SX.sym('arg');
@@ -359,16 +387,19 @@ minus_fun = Function('minus_fun', {arg}, {neg_val});
 sgn_fun = Function('sgn_fun', {arg}, {sgn_val});
 
 % Evaluate numerical quantities
-tau_colloc = tau_root(2:end);
-g_gs_colloc = cell(length(alfarange)-1, length(tau_colloc));
-Jac_colloc = cell(length(alfarange)-1, length(tau_colloc));
-Jac_der_colloc = cell(length(alfarange)-1, length(tau_colloc));
-alfa_colloc = zeros(length(alfarange)-1, d);
-for k = 1:length(alfarange)-1
-    for j = 1:d
-        alfa_colloc(k,j) = min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1);
-        g_gs_colloc{k, j} = full(pista.fun_g_gs(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
-        Jac_colloc{k, j} = full(car.T_jac(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
-        Jac_der_colloc{k, j} = chop(full(car.T_jac_der(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1))),1);
-    end
-end
+% tau_colloc = tau_root(2:end);
+% g_gs_colloc = cell(length(alfarange)-1, length(tau_colloc));
+% Jac_colloc = cell(length(alfarange)-1, length(tau_colloc));
+% Jac_der_colloc = cell(length(alfarange)-1, length(tau_colloc));
+% alfa_colloc = zeros(length(alfarange)-1, d);
+% for k = 1:length(alfarange)-1
+%     for j = 1:d
+%         alfa_colloc(k,j) = min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1);
+%         g_gs_colloc{k, j} = full(pista.fun_g_gs(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
+%         Jac_colloc{k, j} = full(car.T_jac(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
+%         Jac_der_colloc{k, j} = chop(full(car.T_jac_der(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1))),1);
+%     end
+% end
+% car.data.g_gs_colloc = g_gs_colloc;
+% car.data.Jac_colloc = Jac_colloc;
+% car.data.Jac_der_colloc = Jac_der_colloc;

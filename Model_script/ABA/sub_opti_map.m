@@ -1,23 +1,90 @@
-function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, d, init_subrange, alpha_vec, opts)
+function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, init_subrange, alpha_vec, opts, car)
     
 % in this version we overlap only one set of states at the head and the
 % tail (no controls, no algebraic variables)
 
     %% Discretization
-    pre = diff(alfarange);
-    index = find(pre<0);
-    if ~isempty(index)
-        pre(index) = 1-alfarange(index);
-    end
-    dalfa_vec = pre;
-    %dalfa_vec = diff(alfarange);%round(alfarange(2) - alfarange(1),15);
+%     pre = diff(alfarange);
+%     index = find(pre<0);
+%     if ~isempty(index)
+%         pre(index) = 1-alfarange(index);
+%     end
+%     dalfa_vec = pre;
+    dalfa_vec = car.data.dalfa_vec;
+    colloc_type = car.data.colloc_type;
+    d = car.data.d;
+    %%%dalfa_vec = diff(alfarange);%round(alfarange(2) - alfarange(1),15);
     N = length(alfarange)-1;
     
     %% Other script
     import casadi.*
-    direct_collocation;    
-    car_parameters_ocp;
-    common_ocp;
+%     direct_collocation;    
+%     car_parameters_ocp;
+%     common_ocp;
+    %% Unpack
+    nx = car.data.nx; nu = car.data.nu; nz = car.data.nz;
+    X_lb = car.data.X_lb; X_ub = car.data.X_ub;
+    U_lb = car.data.U_lb; U_ub = car.data.U_ub;
+    Z_lb = car.data.Z_lb; Z_ub = car.data.Z_ub;
+    X_scale = car.data.X_scale;
+    U_scale = car.data.U_scale;
+    Z_scale = car.data.Z_scale;
+    ep_scale = car.data.ep_scale;
+    Fy_scale = car.data.Fy_scale;
+    Mz_scale = car.data.Mz_scale;
+    Fx_scale = car.data.Fx_scale;
+    Vi = car.data.Vi;
+    Vmax = car.data.Vmax;
+    kb = car.data.kb;
+    t = car.data.t;
+    rho = car.rho;
+    S = car.Sf;
+    cx = car.cx;
+    cz1 = car.cz1;
+    cz2 = car.cz2;    
+    Pmin = car.data.Pmin;
+    Pmax = car.data.Pmax;
+    tol = car.data.tol;
+    F = car.fun.F;
+    Fz11tyre = car.fun.Fz11tyre;
+    Fz12tyre = car.fun.Fz12tyre;
+    Fz21tyre = car.fun.Fz21tyre;
+    Fz22tyre = car.fun.Fz22tyre;
+    Fytyre = car.fun.Fytyre;
+    Fymaxij = car.fun.Fymaxij;
+    Fxmaxij = car.fun.Fxmaxij;
+    CsFz = car.fun.CsFz;
+    alfa1_fun = car.fun.alfa1_fun;
+    alfa2_fun = car.fun.alfa2_fun;
+    DZ_1 = car.fun.DZ_1;
+    DZ_2 = car.fun.DZ_2;
+    g_gs_num = car.data.g_gs_num;
+    Jac_num = car.data.Jac_num;
+    Jac_der_num = car.data.Jac_der_num;
+    g_gs_colloc = car.data.g_gs_colloc;
+    Jac_colloc = car.data.Jac_colloc;
+    Jac_der_colloc = car.data.Jac_der_colloc;
+
+%     g_gs_num = full(pista.fun_g_gs(alfarange));
+%     g_gs_num = reshape(g_gs_num, 4, 4, []);
+%     Jac_num = full(car.T_jac(alfarange));
+%     Jac_der_num = chop(full(car.T_jac_der(alfarange)),1);
+%     
+%     % Evaluate numerical quantities
+%     tau_colloc = tau_root(2:end);
+%     g_gs_colloc = cell(length(alfarange)-1, length(tau_colloc));
+%     Jac_colloc = cell(length(alfarange)-1, length(tau_colloc));
+%     Jac_der_colloc = cell(length(alfarange)-1, length(tau_colloc));
+%     alfa_colloc = zeros(length(alfarange)-1, d);
+%     for k = 1:length(alfarange)-1
+%         for j = 1:d
+%             alfa_colloc(k,j) = min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1);
+%             g_gs_colloc{k, j} = full(pista.fun_g_gs(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
+%             Jac_colloc{k, j} = full(car.T_jac(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1)));
+%             Jac_der_colloc{k, j} = chop(full(car.T_jac_der(min(alfarange(k) + dalfa_vec(k)*tau_colloc(j),1))),1);
+%         end
+%     end
+
 
     %% Import initial guess
     if ~isempty(init_subrange)
@@ -190,7 +257,7 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     
     % Constitutive constraints
     Fy_tot_k = Fy_11_k + Fy_12_k + Fy_21_k + Fy_22_k;
-    Mz_tot_k = (Fy_11_k + Fy_12_k)*a1 - (Fy_21_k + Fy_22_k)*a2;
+    Mz_tot_k = (Fy_11_k + Fy_12_k)*car.a1 - (Fy_21_k + Fy_22_k)*car.a2;
     pb.append_g(([pb.u(2); pb.u(6)] - [Fy_tot_k; Mz_tot_k]./[Fy_scale; Mz_scale]), zeros(2,1), zeros(2,1));
     
     

@@ -1,7 +1,9 @@
 % check se esiste la viarabile car per calcolare twist e wrench
 car_check = exist('car', 'var');
+
 if ~car_check
-    build_car;
+    %build_car;
+    car = car{1};
 end
 
 for i = 1:Nproblems

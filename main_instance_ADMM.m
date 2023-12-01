@@ -24,18 +24,28 @@ import casadi.*
 %% Create track
 % pista = track_fun(1, '3D', 1, 'end', 700,'degree',4);
 
+% 1 -> load saved track otherwise build track
+track_saved = 1;
+%1 -> Catalunya, 2 -> Nurbrugring, 3 -> Calabogie
+track_index = 2; 
+% Build track
+switch track_saved 
+    case 1
+        warning('off','all')
+        load('track_stored');
+        warning('on','all')
+        track = track_stored{track_index};
+    otherwise
+        cntrlpts = 700; % Number of control points
+        track = track_fun(track_index, '3D', 1, 'end', contrlpts);
+end
+pista = track;
 %%% Load Nurburgring
-warning off
-load('Data\pista_original_2.mat');
-warning on
+% warning off
+% load('Data\pista_original_2.mat');
+% warning on
 pista.residual;
-
-
-%%% Load saved CasADi tracks
-% load('Data\track_stored.mat');
-% pista = track_stored{3};
 disp(['fitting error is ', num2str(full(pista.tot_error))])
-
 save('Data\pista.mat', 'pista');
 
 %% load ADMM settings
@@ -55,29 +65,49 @@ if split_manual
     prompt = ['Pick ', num2str(Nproblems/lap - 1),' ', 'internal lap points = '];
     manual_index = input(prompt);
     save('Data\manual_index.mat', 'manual_index');
+    % Build alpha_subrange and store global and local consensus indexes
+    [alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
 else
     manual_index = [];
+    % Build alpha_subrange and store global and local consensus indexes    
+    [alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
 end
 
-J0 = zeros(1, Nproblems);
-[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
+if init_guess 
+    [init_subrange] = split_init(alpha_subrange, guess, nx, 'alpha_numeric', alpha_numeric);
+else
+    init_subrange = [];
+end
 
 % create problems
 solver_info = cell(Nproblems, 1);
 sol_struct = cell(Nproblems, 1);
+J0 = zeros(1, Nproblems);
 RHO_head = 1.*ones(Nproblems, 1); % penalty head
 RHO_head_0 = 1.*ones(Nproblems, 1); % penalty head 0
 RHO_tail = 1.*ones(Nproblems, 1); % penalty tail
 RHO_tail_0 = 1.*ones(Nproblems, 1); % penalty tail 0
 previousConsErr = 0;
 
-for i = 1:Nproblems
-
-    alpha_subrange{i} = round(alpha_subrange{i}, 15); % elemOverlap need to be > nx
-    
+xx_scale = scale.x(4);
+yy_scale = scale.x(5);
+data = cell(1,Nproblems);
+car_subproblems = cell(1,Nproblems);
+if strcmp(vehicle_type, 'ABA')
+    parfor i = 1:Nproblems
+        %car_parameters_ocp
+        %common_ocp
+        car_subproblems{i} = car_parameters_ocp_fun(alpha_subrange{i}, pista, colloc_type, d);
+    end
+    car = car_subproblems{1};
+elseif strcmp(vehicle_type, 'Double')
+    parfor i = 1:Nproblems
+        data{i} = car_parameters_ocp_fun(alpha_subrange{i}, pista, lap, colloc_type, d);
+        car_subproblems{i} = vehicle_casadi('double-track-full', data{i});
+    end
 end
 
-% definite another time effective element overlap 
+% definite element overlap 
 elemOverlap = (o*(nx + nu + nz) + nx);
 
 %% plots init
@@ -89,14 +119,15 @@ figADMM = gcf;
 % variable initialization
 solutions = cell(Nproblems, 1);
 convergence = false;
+share_data = cell(1, Nproblems);
 X = cell(1, Nproblems); % init solution arrays for each sub problem
 Xc = cell(1, Nproblems); % init solution arrays for each colloc
 Z = cell(1, Nproblems); % consensus for sub - problem
 Z_acc = cell(1, Nproblems); % consensus acc for sub - problem
-Z_acc_all = cell(1, Nproblems); % consensus acc for all problem 
+Z_acc_all = cell(1, Nproblems); % consensus acc for all problem it will have a dimension of Iter (not Nproblems)
 Y = cell(1, Nproblems); % moltiplicatori sub - problem
 Y_acc = cell(1, Nproblems); % moltiplicatori acc sub - problem
-Y_acc_all = cell(1, Nproblems); % moltiplicatori acc for all problem 
+Y_acc_all = cell(1, Nproblems); % moltiplicatori acc for all problem it will have a dimension of Iter (not Nproblems)
 gamma = cell(1, Nproblems); % gamma for all problem
 error = cell(1, Nproblems);
 Znext = cell(1, Nproblems);
@@ -144,16 +175,39 @@ check_gamma = [];
 
 %% SUB-INSTANCES INITIALIZATION
 %write initial data to files, convergence, Z, Y, RHO
-parfor i = 1:Nproblems
 
+for i = 1:Nproblems
+    share_data{i}.split_manual = split_manual;
+    share_data{i}.alpha_subrange = alpha_subrange{i};
+    share_data{i}.alpha_vec = alpha_vec;
+    share_data{i}.ID = ID;
+    share_data{i}.id = id;
+    if isempty(init_subrange)
+        share_data{i}.init_subrange = [];
+    else
+        share_data{i}.init_subrange = init_subrange{i};
+    end
+    share_data{i}.e = e;
+    share_data{i}.o = o;
+    share_data{i}.d = d;
+    share_data{i}.vehicle_type = vehicle_type;
+    share_data{i}.homotopy = homotopy;
+    share_data{i}.IPOPT_opt = IPOPT_opt;
+end
+
+parfor i = 1:Nproblems
     mkdir(sprintf('%s\\Temp\\SubInstance_%i', working_dir, i));
     copyfile('Data\pista.mat',sprintf('Temp\\SubInstance_%i\\pista.mat', i));
+%     file_car = strcat('Model_script\',vehicle_type,'\car.mat');
+%     copyfile(file_car,sprintf('Temp\\SubInstance_%i\\car.mat', i));
     if split_manual
         copyfile('Data\manual_index.mat',sprintf('Temp\\SubInstance_%i\\manual_index.mat', i));   
     end
     waiting_filename{i} = create_waiting_function(i);
     write_convergence(i, convergence);
     write_consensus(i, Z{i}, Y{i}, [RHO_head(i); RHO_tail(i)]);
+    write_share_data(i, share_data{i});
+    write_car(i, car_subproblems{i});
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%% HERE WE LAUNCH INSTANCES IN BATCH %%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

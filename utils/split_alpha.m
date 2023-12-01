@@ -162,5 +162,8 @@ plot(horzcat(ID.t{:}),alpha_range(horzcat(ID.t{:})),'*','Color','c','markersize'
 plot(horzcat(ID.H{:}),alpha_range(horzcat(ID.H{:})),'square','Color',[0,1,0.5],'markersize',30, 'parent', ax)
 plot(horzcat(ID.T{:}),alpha_range(horzcat(ID.T{:})),'o','Color',[1,0,0], 'parent', ax)
 
+for i = 1:Nproblems
+    alpha_subrange{i} = round(alpha_subrange{i}, 15); 
+end
 
 end

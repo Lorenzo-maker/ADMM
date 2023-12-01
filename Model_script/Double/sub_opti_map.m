@@ -1,25 +1,30 @@
-function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, d, init_subrange, alpha_vec, opts)
+function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, init_subrange, alpha_vec, opts, car_extra)
     
 % in this version we overlap only one set of states at the head and the
 % tail (no controls, no algebraic variables)
 
     %% Discretization
     dalfa = round(alfarange(2) - alfarange(1),15);
+    dalfa = diff(alfarange);
     N = length(alfarange)-1;
     colloc_type = 'radau';
-
+    d = car_extra.data.d;
     %% Other script
     import casadi.*
     lap = length(find(diff(alpha_vec) < 0)) + 1;
     car_parameters_ocp;
     car = vehicle_casadi('double-track-full', data);
+    %car = car_extra;
     alfa_grid = alfarange;
     
     tau_root = [0 collocation_points(d, colloc_type)];
     alfa_grid_colloc = zeros(d+1, N+1);
     alfa_grid_colloc(1,:) = alfa_grid';
-    for i = 2:length(tau_root)
-        alfa_grid_colloc(i,:) = round(alfa_grid + dalfa*tau_root(i),10);
+    for j = 1:N
+        for i = 2:length(tau_root)
+            alfa_grid_colloc(i,j) = round(alfa_grid(j) + dalfa(j)*tau_root(i),10);
+        end
+        alfa_grid_colloc(i,N+1) = round(alfa_grid(end),10);
     end
     
     pos_grid = full(pista.fun_pos(alfa_grid));

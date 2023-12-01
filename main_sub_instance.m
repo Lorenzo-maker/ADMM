@@ -18,7 +18,37 @@ addpath(genpath('utils'));
 %% Create subproblems
  % load global settings
 load(sprintf('Temp//SubInstance_%i//pista.mat',ID_instance))
-ADMM_batch_settings;
+
+
+%ADMM_batch_settings;
+
+%% admm settings
+% The settings written here are used by the ADMM instance and the sub
+% problems instances
+
+
+
+
+%% Unpack share data
+load(sprintf('SubInstance_%i\\share_data_%i.mat', ID_instance, ID_instance), 'share_data');
+split_manual = share_data.split_manual ;
+alpha_subrange = share_data.alpha_subrange;
+alpha_vec = share_data.alpha_vec;
+ID = share_data.ID;
+id = share_data.id;
+init_subrange = share_data.init_subrange;
+e = share_data.e;
+o = share_data.o;
+d = share_data.d;
+vehicle_type = share_data.vehicle_type;
+homotopy = share_data.homotopy;
+IPOPT_opt = share_data.IPOPT_opt;
+
+addpath(genpath(strcat('Model_script/',vehicle_type)));
+warning off
+load(sprintf('Temp//SubInstance_%i//car_%i.mat',ID_instance,ID_instance))
+warning on
+
 if split_manual
     load(sprintf('Temp//SubInstance_%i//manual_index.mat',ID_instance))
 else
@@ -26,17 +56,17 @@ else
 end
 %%%%%%%%%%%%%%%%%%%%%%%% element overlap calculation %%%%%%%%%%%%%%%%%%%%%%
 
-elemOverlap = (o*(nx + nu + nz)+nx);
+%elemOverlap = (o*(nx + nu + nz)+nx);
 
 %%%%% Load alpha_subrange
-[alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
-alpha_subrange = alpha_subrange{ID_instance};
-%%%%% Use initial guess from simulation
-if init_guess 
-    [init_subrange] = split_init(alpha_subrange, guess, nx, 'alpha_numeric', alpha_numeric);
-else
-    init_subrange = [];
-end
+% [alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
+% alpha_subrange = alpha_subrange{ID_instance};
+% %%%% Use initial guess from simulation
+% if init_guess 
+%     [init_subrange] = split_init(alpha_subrange, guess, nx, 'alpha_numeric', alpha_numeric);
+% else
+%     init_subrange = [];
+% end
 
 convergence = 0;
 problem = [];
@@ -48,23 +78,15 @@ tic
 waiting = true;
 waiting_filename = sprintf('Temp\\%s_%i\\%s_%i.txt', 'SubInstance', ID_instance, 'waiting_file', ID_instance);
 
-% if ID_instance == 1
-%     overlap_tail = e;
-%     overlap_head = 0;
-% elseif ID_instance == Nproblems
-%     overlap_tail = 0;
-%     overlap_head = e;
-% else
-%     overlap_tail = e;
-%     overlap_head = e;
-% end
+
 [problem, problemData] = sub_opti_map(alpha_subrange,...                                        
                                         pista,...
                                         o, id, ID,...
-                                        ID_instance, d,...
+                                        ID_instance,...
                                         init_subrange,...
                                         alpha_vec,...
-                                        IPOPT_opt);
+                                        IPOPT_opt,...
+                                        car);
 % save(sprintf('Temp//SubInstance_%i//longData.mat',ID_instance), 'problemData');
 fprintf('\n problem %i built \n', ID_instance);
 change_waiting_status(ID_instance); % change here to 1 to let ADMM know the problems are built
@@ -168,6 +190,7 @@ while ~convergence
             activation_comp = 1;%10^2;
             activation_opt = 1;
             activation_start = 0;
+                disp('sono qui................')
 
             solutions =  problem('x0',  problemData.w0,...
                 'lbx', problemData.lbw,...

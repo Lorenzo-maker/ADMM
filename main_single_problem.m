@@ -32,6 +32,13 @@ pista = track_stored{2};
 save('Data\pista.mat', 'pista');
 %% settings
 ADMM_batch_settings; % most of the settings are here (also IPopt options)
+if strcmp(vehicle_type, 'ABA')
+    car = car_parameters_ocp_fun(alpha_vec, pista, colloc_type, d);
+elseif strcmp(vehicle_type, 'Double')
+    data = car_parameters_ocp_fun(alpha_vec,pista,lap);
+    car = vehicle_casadi('double-track-full', data);
+end    
+
 
 clear IPOPT_opt
 IPOPT_opt = struct( ...
@@ -88,7 +95,8 @@ tic
                                         ID_instance, d,...
                                         init_subrange,...
                                         alpha_vec,...
-                                        IPOPT_opt);
+                                        IPOPT_opt,...
+                                        car);
 time_build = toc; % may be way faster with map class
 
 fprintf('problem built in %f seconds \n', time_build);

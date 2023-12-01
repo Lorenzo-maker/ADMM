@@ -36,7 +36,7 @@ else
         X_sol = [alpha_vec; x_init, x_other(nu+nz+1+nx*d:end, :)].*[1;X_scale];
         %other_states = reshape(x_other(nu+nz+1:end, :), nx, (Nsteps-1)*(d+1) ).*X_scale(2:end);
     else
-        X_sol = [x_init, x_other(nu+nz+1+nx*d:end, :)].*X_scale;
+        X_sol = [x_init, x_other(nu+nz+1+nx*d:end, :)];%.*X_scale;
     end
     U_sol = x_other(1:nu, :).*U_scale;
     Z_sol = x_other(nu+1:nu+nz, :).*Z_scale;
