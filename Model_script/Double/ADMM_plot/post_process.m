@@ -3,7 +3,9 @@ set(groot, 'defaultAxesTickLabelInterpreter','latex');
 set(groot, 'defaultLegendInterpreter','latex');
 set(0,'defaultTextInterpreter','latex');
 
-
+X_scale = scale.x;
+U_scale = scale.u;
+Z_scale = scale.z;
 % Nsteps = Nsteps + 1;
 kk = 1;
 index0 = find(alpha_vec == 0);

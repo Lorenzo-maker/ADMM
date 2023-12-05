@@ -46,7 +46,7 @@ IPOPT_opt = share_data.IPOPT_opt;
 
 addpath(genpath(strcat('Model_script/',vehicle_type)));
 warning off
-load(sprintf('Temp//SubInstance_%i//car_%i.mat',ID_instance,ID_instance))
+load(sprintf('Temp//SubInstance_%i//car.mat',ID_instance))
 warning on
 
 if split_manual

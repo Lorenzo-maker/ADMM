@@ -1,4 +1,4 @@
-function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, d, init_subrange, alpha_vec, opts, car_extra)
+function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, init_subrange, alpha_vec, opts, car)
     
 % in this version we overlap only one set of states at the head and the
 % tail (no controls, no algebraic variables)
@@ -6,33 +6,56 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     %% Discretization
     dalfa = round(alfarange(2) - alfarange(1),15);
     N = length(alfarange)-1;
-    
+    colloc_type = car.data.colloc_type;
+    d = car.data.d;
     %% Other script
     import casadi.*
     lap = length(find(diff(alpha_vec) < 0)) + 1;
-    car_parameters_ocp;
-    car = vehicle_casadi('point-mass', data);
-    alfa_grid = alfarange;
-    pos_grid = full(pista.fun_pos(alfa_grid));
-    ns_grid  = full(pista.fun_vh(alfa_grid));
-    kp_grid  = full(pista.fun_kp(alfa_grid));
-    ts_grid = full(pista.fun_ts(alfa_grid));
-    ts_grid(3,:) = 0;
-    ts_grid = ts_grid./vecnorm(ts_grid);
-    if length(ID.H) > 1
-        if isempty(ID.H{problem_number}) && isempty(ID.h{problem_number})
-            out = [ID.T{problem_number},ID.t{problem_number}];
-            psi_grid = psi_grid(1:max(out));
-        elseif isempty(ID.T{problem_number}) && isempty(ID.t{problem_number})
-            in = [ID.H{problem_number},ID.h{problem_number}];
-            psi_grid = psi_grid(min(in):end);
-        else
-            in = [ID.H{problem_number},ID.h{problem_number}];
-            out = [ID.T{problem_number},ID.t{problem_number}];
-            psi_grid = psi_grid(min(in):max(out));
+%     car_parameters_ocp;
+%     car = vehicle_casadi('point-mass', data);
+%     alfa_grid = alfarange;
+%     pos_grid = full(pista.fun_pos(alfa_grid));
+%     ns_grid  = full(pista.fun_vh(alfa_grid));
+%     kp_grid  = full(pista.fun_kp(alfa_grid));
+%     ts_grid = full(pista.fun_ts(alfa_grid));
+%     ts_grid(3,:) = 0;
+%     ts_grid = ts_grid./vecnorm(ts_grid);
+%     if length(ID.H) > 1
+%         if isempty(ID.H{problem_number}) && isempty(ID.h{problem_number})
+%             out = [ID.T{problem_number},ID.t{problem_number}];
+%             psi_grid = psi_grid(1:max(out));
+%         elseif isempty(ID.T{problem_number}) && isempty(ID.t{problem_number})
+%             in = [ID.H{problem_number},ID.h{problem_number}];
+%             psi_grid = psi_grid(min(in):end);
+%         else
+%             in = [ID.H{problem_number},ID.h{problem_number}];
+%             out = [ID.T{problem_number},ID.t{problem_number}];
+%             psi_grid = psi_grid(min(in):max(out));
+%         end
+%     end
+    %psi_grid = atan_track(ts_grid, 'clockwise');
+    
+    if length(alfarange) == ID.end
+        index_start = ID.start;
+        index_end = ID.end;
+    else
+        if problem_number > 1 && problem_number < length(ID.H)
+            index_start = ID.H{problem_number}(1);
+            index_end = ID.T{problem_number}(end);
+        elseif problem_number == 1
+            index_start = ID.start;
+            index_end = ID.T{problem_number}(end);
+        elseif problem_number == length(ID.H)
+            index_start = ID.H{problem_number}(1);
+            index_end = ID.end;
         end
     end
-    %psi_grid = atan_track(ts_grid, 'clockwise');
+    
+    pos_grid = car.data.track.pos_grid(:,index_start:index_end);%full(pista.fun_pos(alfa_grid));
+    ns_grid  = car.data.track.ns_grid(:,index_start:index_end);%full(pista.fun_vh(alfa_grid));
+    kp_grid  = car.data.track.kp_grid(:,index_start:index_end);%full(pista.fun_kp(alfa_grid));
+    ts_grid = car.data.track.ts_grid(:,index_start:index_end);%full(pista.fun_ts(alfa_grid));
+    psi_grid = car.data.track.psi_grid(:,index_start:index_end);%full(pista.fun_ts(alfa_grid));
     %% Construct NLP
     if problem_number > 1
         %%%%% In opti singolo ef = 0 %%%%%%%
@@ -48,7 +71,6 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     Pdata.Pg = [pos_grid(1:2,2:end); ns_grid(1:2, 2:end)];
 
     % NLP
-    colloc_type = 'radau';
     pb = nlp_casadi_2(car.nx, car.nu, car.nz, car.nuc, car.nzc, car.nwg, N, d, car.Xb, car.Ub, car.Zb, [], [], [], 4, 2, Pdata, 8, np, 'SXMX', colloc_type);
     pb.w0 = [];
     for k = 1:N
@@ -76,8 +98,8 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     end
     xdot = car.F(pb.x, pb.u, pb.z);
     pb.Jj = activation_opt*((pb.z(5)*car.data.Z_scale(5))^2 + 0.1*(pb.u(2)*car.data.U_scale(2))^2 + 0.01*xdot(2)^2 + 1*(pb.z_1(2)-pb.z(2))^2);
-    pb.Jj = pb.Jj + activation_start*((pb.x(1)*X_scale(1) - 20)^2 + (pb.z(4)*Z_scale(4))^2);
-    pb.append_g(pb.xc_end - pb.x, zeros(nx,1), zeros(nx, 1));
+    pb.Jj = pb.Jj + activation_start*((pb.x(1)*car.data.X_scale(1) - 20)^2 + (pb.z(4)*car.data.Z_scale(4))^2);
+    pb.append_g(pb.xc_end - pb.x, zeros(car.nx,1), zeros(car.nx, 1));
 
     % pb.append_g((pb.x - pb.x_1).*data.X_scale - xdot.*pb.z(5)*data.Z_scale(5), zeros(car.nx,1), zeros(car.nx,1))
     % Stay on track constraint
@@ -115,9 +137,9 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
             k_head = id.h{problem_number}(1:end-1);
         end
         % consensus term        
-        Zcons_h = casadi.(sym_type).sym(['Zcons' num2str(k_head)], o*(nx + nu + nz) + nx);
+        Zcons_h = casadi.(sym_type).sym(['Zcons' num2str(k_head)], o*(car.nx + car.nu + car.nz) + car.nx);
         Zcons = [Zcons; Zcons_h];        
-        Ycons_h = casadi.(sym_type).sym(['Ycons' num2str(k_head)], o*(nx + nu + nz) + nx);
+        Ycons_h = casadi.(sym_type).sym(['Ycons' num2str(k_head)], o*(car.nx + car.nu + car.nz) + car.nx);
         Ycons = [Ycons; Ycons_h];
         if o == 0
             x_h = pb.X_1(:,k_head);
@@ -136,9 +158,9 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
             k_tail = id.t{problem_number}(1:end-1);
         end
         % consensus term        
-        Zcons_t = casadi.(sym_type).sym(['Zcons' num2str(k_tail)], o*(nx + nu + nz) + nx);
+        Zcons_t = casadi.(sym_type).sym(['Zcons' num2str(k_tail)], o*(car.nx + car.nu + car.nz) + car.nx);
         Zcons = [Zcons; Zcons_t];
-        Ycons_t = casadi.(sym_type).sym(['Ycons' num2str(k_tail)], o*(nx + nu + nz) + nx);
+        Ycons_t = casadi.(sym_type).sym(['Ycons' num2str(k_tail)], o*(car.nx + car.nu + car.nz) + car.nx);
         Ycons = [Ycons; Ycons_t];        
         if o == 0
             x_t = pb.X(:,k_tail-1);
@@ -213,9 +235,9 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     numericalData.ubw = pb.ubw;
     numericalData.lbg = pb.lbg;
     numericalData.ubg = pb.ubg;
-    numericalData.nx = nx;
-    numericalData.nu = nu;
-    numericalData.nz = nz;
+    numericalData.nx = car.nx;
+    numericalData.nu = car.nu;
+    numericalData.nz = car.nz;
     numericalData.opts = opts;
 %     numericalData.dll_filename = sprintf('%s_%i.dll', 'Compilati\sub_problem', problem_number);
 %     numericalData.bat_filename = sprintf('%s_%i.bat', 'Compilati\compilation', problem_number);  

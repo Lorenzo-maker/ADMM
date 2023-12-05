@@ -22,13 +22,12 @@ addpath(genpath('utils'));
 import casadi.*
 
 %% Create track
-% pista = track_fun(1, '3D', 1, 'end', 700,'degree',4);
-
 % 1 -> load saved track otherwise build track
 track_saved = 1;
 %1 -> Catalunya, 2 -> Nurbrugring, 3 -> Calabogie
 track_index = 2; 
 % Build track
+warning off
 switch track_saved 
     case 1
         warning('off','all')
@@ -40,17 +39,15 @@ switch track_saved
         track = track_fun(track_index, '3D', 1, 'end', contrlpts);
 end
 pista = track;
-%%% Load Nurburgring
-% warning off
-% load('Data\pista_original_2.mat');
-% warning on
 pista.residual;
 disp(['fitting error is ', num2str(full(pista.tot_error))])
 save('Data\pista.mat', 'pista');
+warning on
 
 %% load ADMM settings
 ADMM_batch_settings; % most of the settings are here (also IPOPT options)
 
+%% Split alpha (manual or automatic)
 % Run track plot with alpha index
 if split_manual    
     figure(100)
@@ -73,42 +70,23 @@ else
     [alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
 end
 
+%% Split initial guess
 if init_guess 
     [init_subrange] = split_init(alpha_subrange, guess, nx, 'alpha_numeric', alpha_numeric);
 else
     init_subrange = [];
 end
 
-% create problems
-solver_info = cell(Nproblems, 1);
-sol_struct = cell(Nproblems, 1);
-J0 = zeros(1, Nproblems);
-RHO_head = 1.*ones(Nproblems, 1); % penalty head
-RHO_head_0 = 1.*ones(Nproblems, 1); % penalty head 0
-RHO_tail = 1.*ones(Nproblems, 1); % penalty tail
-RHO_tail_0 = 1.*ones(Nproblems, 1); % penalty tail 0
-previousConsErr = 0;
+%% Build and save car object and scaling factors for plot
+warning off
+launch_car_builder
 
-xx_scale = scale.x(4);
-yy_scale = scale.x(5);
-data = cell(1,Nproblems);
-car_subproblems = cell(1,Nproblems);
-if strcmp(vehicle_type, 'ABA')
-    parfor i = 1:Nproblems
-        %car_parameters_ocp
-        %common_ocp
-        car_subproblems{i} = car_parameters_ocp_fun(alpha_subrange{i}, pista, colloc_type, d);
-    end
-    car = car_subproblems{1};
-elseif strcmp(vehicle_type, 'Double')
-    parfor i = 1:Nproblems
-        data{i} = car_parameters_ocp_fun(alpha_subrange{i}, pista, lap, colloc_type, d);
-        car_subproblems{i} = vehicle_casadi('double-track-full', data{i});
-    end
-end
-
-% definite element overlap 
-elemOverlap = (o*(nx + nu + nz) + nx);
+scale.x = car.data.X_scale;
+scale.u = car.data.U_scale;
+scale.z = car.data.Z_scale;
+file_car = strcat('Model_script\',vehicle_type,'\car.mat');
+save(file_car, 'car');
+warning on
 
 %% plots init
 
@@ -116,7 +94,15 @@ ADMM_plot_init;
 figADMM = gcf;
 
 %% ADMM_algorithm
+% definite element overlap 
+elemOverlap = (o*(nx + nu + nz) + nx);
 % variable initialization
+solver_info = cell(Nproblems, 1);
+sol_struct = cell(Nproblems, 1);
+J0 = zeros(1, Nproblems);
+RHO_head = 1.*ones(Nproblems, 1); % penalty head
+RHO_tail = 1.*ones(Nproblems, 1); % penalty tail
+previousConsErr = 0;
 solutions = cell(Nproblems, 1);
 convergence = false;
 share_data = cell(1, Nproblems);
@@ -145,7 +131,7 @@ epsilon_error = cell(1, Nproblems);
 epsilon_z = cell(1, Nproblems);
 waiting_filename = cell(1, Nproblems);
         
-% create consensus arrays multipliers and tollerance array
+%% Initialize consensus, multipliers and solutions and building tollerance array
 for i = 1:Nproblems
     if i == 1 % no head 
         epsilon_error{i} = error_factor*epsilon_array;
@@ -174,8 +160,7 @@ ADMM_iteration = 0;
 check_gamma = [];
 
 %% SUB-INSTANCES INITIALIZATION
-%write initial data to files, convergence, Z, Y, RHO
-
+% Save data to share in share_data
 for i = 1:Nproblems
     share_data{i}.split_manual = split_manual;
     share_data{i}.alpha_subrange = alpha_subrange{i};
@@ -195,11 +180,12 @@ for i = 1:Nproblems
     share_data{i}.IPOPT_opt = IPOPT_opt;
 end
 
+% Copy track, car, share_data, convergence, Z, Y, rho -> launch
+% sub-instances
 parfor i = 1:Nproblems
     mkdir(sprintf('%s\\Temp\\SubInstance_%i', working_dir, i));
     copyfile('Data\pista.mat',sprintf('Temp\\SubInstance_%i\\pista.mat', i));
-%     file_car = strcat('Model_script\',vehicle_type,'\car.mat');
-%     copyfile(file_car,sprintf('Temp\\SubInstance_%i\\car.mat', i));
+    copyfile(file_car,sprintf('Temp\\SubInstance_%i\\car.mat', i));
     if split_manual
         copyfile('Data\manual_index.mat',sprintf('Temp\\SubInstance_%i\\manual_index.mat', i));   
     end
@@ -207,7 +193,6 @@ parfor i = 1:Nproblems
     write_convergence(i, convergence);
     write_consensus(i, Z{i}, Y{i}, [RHO_head(i); RHO_tail(i)]);
     write_share_data(i, share_data{i});
-    write_car(i, car_subproblems{i});
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%% HERE WE LAUNCH INSTANCES IN BATCH %%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -215,13 +200,13 @@ parfor i = 1:Nproblems
     launch_sub_instance(i, working_dir);
 end
 
-
+%% Loop for waiting that all problems are built
 % recap: waiting status = 0 -> problems are working
 %        waiting status = 1 -> problems are completed, ADMM can gather
 %                              solutions
 waiting_status = 0;
 waiting = nan(Nproblems, 1);
-while ~waiting_status % loop until all subrpoblems are are ready
+while ~waiting_status % loop until all subrpoblems are ready
     
     for i = 1: Nproblems
         waiting(i) = readWaiting(waiting_filename{i});
@@ -233,11 +218,12 @@ while ~waiting_status % loop until all subrpoblems are are ready
     % start the sub problems iterations
 end
 
-%%%% make the problems finally start
+%% make the problems finally start
 for i = 1:Nproblems
    change_waiting_status(i); % turning waiting to -> 0
 end
 pause(3);
+
 
 %% ADMM LOOP
 tic
@@ -330,7 +316,6 @@ while ~convergence % test di convergenza del consenso
             
             if ADMM_iteration == ITER_start 
                 RHO_tail(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
-                RHO_tail_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
             end
             
             if all(conv{i}) == false && ADMM_iteration > ITER_start 
@@ -361,7 +346,6 @@ while ~convergence % test di convergenza del consenso
             
             if ADMM_iteration == ITER_start 
                 RHO_head(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4   error{i}
-                RHO_head_0(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4  error{i}                 
             end
             
             if all(conv{i}) == false && ADMM_iteration > ITER_start 
@@ -403,9 +387,7 @@ while ~convergence % test di convergenza del consenso
             
             if ADMM_iteration == ITER_start 
                 RHO_tail(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
-                RHO_tail_0(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
                 RHO_head(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}
-                RHO_head_0(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}                
             end
             
             if all(conv{i}) == false && ADMM_iteration > ITER_start 

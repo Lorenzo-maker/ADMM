@@ -21,23 +21,35 @@ addpath(genpath('Extra'));
 %% Create track
 import casadi.*
 
-% %pista = track_fun(1, '3D', 1, 'end', 500, 'degree', 4);
-% load('Data\pista_original_2.mat');
-% pista.residual;
-
-load('Data\track_stored.mat');
-pista = track_stored{2};
-% disp(['fitting error is ', num2str(full(pista.tot_error))])
+%% Create track
+% 1 -> load saved track otherwise build track
+track_saved = 1;
+%1 -> Catalunya, 2 -> Nurbrugring, 3 -> Calabogie
+track_index = 2; 
+% Build track
+warning off
+switch track_saved 
+    case 1
+        warning('off','all')
+        load('track_stored');
+        warning('on','all')
+        track = track_stored{track_index};
+    otherwise
+        cntrlpts = 700; % Number of control points
+        track = track_fun(track_index, '3D', 1, 'end', contrlpts);
+end
+pista = track;
+pista.residual;
+disp(['fitting error is ', num2str(full(pista.tot_error))])
 
 save('Data\pista.mat', 'pista');
 %% settings
 ADMM_batch_settings; % most of the settings are here (also IPopt options)
-if strcmp(vehicle_type, 'ABA')
-    car = car_parameters_ocp_fun(alpha_vec, pista, colloc_type, d);
-elseif strcmp(vehicle_type, 'Double')
-    data = car_parameters_ocp_fun(alpha_vec,pista,lap);
-    car = vehicle_casadi('double-track-full', data);
-end    
+launch_car_builder
+
+scale.x = car.data.X_scale;
+scale.u = car.data.U_scale;
+scale.z = car.data.Z_scale;   
 
 
 clear IPOPT_opt
@@ -87,12 +99,14 @@ ID.H{1} = [];
 ID.T{1} = [];
 id.H{1} = [];
 id.T{1} = [];
+ID.start = 1;
+ID.end = length(alpha_vec);
 %% problem creation and solution
 tic
 [problem, problemData] = sub_opti_map(alpha_vec,...                                        
                                         pista,...
                                         o, id, ID,...
-                                        ID_instance, d,...
+                                        ID_instance,...
                                         init_subrange,...
                                         alpha_vec,...
                                         IPOPT_opt,...

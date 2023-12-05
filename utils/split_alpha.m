@@ -2,6 +2,8 @@ function [alpha_subrange, id_start, id_end, ID, id] = split_alpha(Nsteps, Nprobl
 %
 %
 %
+ID.start = 1;
+ID.end = length(alpha_range);
 Nsteps_0 = Nsteps/lap;
 Nsteps = Nsteps + 1;
 % if lap > 1

@@ -1,8 +1,9 @@
 %% admm settings
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
-vehicle_type = 'Double';
+vehicle_type = 'Electric';
 addpath(genpath(strcat('Model_script/',vehicle_type)));
+model_info
 %addpath(genpath('Model_script/ABA'));
 homotopy = false;
 init_guess = false;
@@ -20,7 +21,7 @@ Nsteps = 1500*lap;  % TOTAL STEPS
 e = 30;             % if e > 0 it must be greater than o/2 % number of mesh interval for overlapping area
 o = 1;              % number of mesh interval for consensus (if o = 0 consensus only on states at interfaces)
 d = 2;              % number of collocation points 
-colloc_type = 'radau';
+colloc_type = 'legendre';
 %%%%%% check discretization type and define final alpha %%%%%%       
 alpha_numeric = true;
 
@@ -43,7 +44,8 @@ else
     alpha_vec = alpha_vec_lap;%linspace(0, alfa_end, Nsteps + 1);
 end
 
-car_parameters_ocp;
+alpha_vec = round(alpha_vec, 15);
+%car_parameters_ocp;
 
 
 %%%%%%%%%%%%%%%%%%%%% rho parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,520 @@
+%% ADMM main instance script
+restoredefaultpath
+clear all
+clc
+close all
+working_dir = pwd;
+
+savepath = 'Results\1500_4_81'; % for results path
+
+%% Path
+
+addpath(genpath('../Casadi'));
+addpath('communication_functions');
+addpath(genpath('Casadi'));
+addpath(genpath('Classes'));
+addpath(genpath('Track'));
+addpath(genpath('ADMM_functions'));
+addpath(genpath('Data'));
+addpath(genpath('scripts'));
+addpath(genpath('utils'));
+
+import casadi.*
+
+%% Create track
+% 1 -> load saved track otherwise build track
+track_saved = 1;
+%1 -> Catalunya, 2 -> Nurbrugring, 3 -> Calabogie
+track_index = 2; 
+% Build track
+warning off
+switch track_saved 
+    case 1
+        warning('off','all')
+        load('track_stored');
+        warning('on','all')
+        track = track_stored{track_index};
+    otherwise
+        cntrlpts = 700; % Number of control points
+        track = track_fun(track_index, '3D', 1, 'end', contrlpts);
+end
+pista = track;
+pista.residual;
+disp(['fitting error is ', num2str(full(pista.tot_error))])
+save('Data\pista.mat', 'pista');
+warning on
+
+%% load ADMM settings
+ADMM_batch_settings; % most of the settings are here (also IPOPT options)
+
+%% Split alpha (manual or automatic)
+% Run track plot with alpha index
+if split_manual    
+    figure(100)
+    lap_alpha = alpha_vec(1:Nsteps/lap);
+    dataxyz = full(pista.fun_pos(lap_alpha));
+    p = plot(dataxyz(1,:),dataxyz(2,:));
+    axis('equal')
+    dtRow = [dataTipTextRow("alpha", lap_alpha), dataTipTextRow("alphaindex", linspace(1,length(lap_alpha),length(lap_alpha)))];
+    datatip(p);
+    p.DataTipTemplate.DataTipRows(end+1:end+2) = dtRow;
+    disp('pick the value from plot only for 1 lap (other lap points are added automatically)')
+    prompt = ['Pick ', num2str(Nproblems/lap - 1),' ', 'internal lap points = '];
+    manual_index = input(prompt);
+    save('Data\manual_index.mat', 'manual_index');
+    % Build alpha_subrange and store global and local consensus indexes
+    [alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
+else
+    manual_index = [];
+    % Build alpha_subrange and store global and local consensus indexes    
+    [alpha_subrange, ~, ~, ID, id] = split_alpha(Nsteps, Nproblems, e, o, alpha_vec, lap, manual_index);
+end
+
+%% Split initial guess
+if init_guess 
+    [init_subrange] = split_init(alpha_subrange, guess, nx, 'alpha_numeric', alpha_numeric);
+else
+    init_subrange = [];
+end
+
+%% Build and save car object and scaling factors for plot
+warning off
+launch_car_builder
+
+scale.x = car.data.X_scale;
+scale.u = car.data.U_scale;
+scale.z = car.data.Z_scale;
+file_car = strcat('Model_script\',vehicle_type,'\car.mat');
+save(file_car, 'car');
+warning on
+
+%% plots init
+
+ADMM_plot_init;
+figADMM = gcf;
+
+%% ADMM_algorithm
+% definite element overlap 
+elemOverlap = (o*(nx + nu + nz) + nx);
+% variable initialization
+solver_info = cell(Nproblems, 1);
+sol_struct = cell(Nproblems, 1);
+J0 = zeros(1, Nproblems);
+RHO_head = 1.*ones(Nproblems, 1); % penalty head
+RHO_tail = 1.*ones(Nproblems, 1); % penalty tail
+previousConsErr = 0;
+solutions = cell(Nproblems, 1);
+convergence = false;
+share_data = cell(1, Nproblems);
+X = cell(1, Nproblems); % init solution arrays for each sub problem
+Xc = cell(1, Nproblems); % init solution arrays for each colloc
+Z = cell(1, Nproblems); % consensus for sub - problem
+Z_acc = cell(1, Nproblems); % consensus acc for sub - problem
+Z_acc_all = cell(1, Nproblems); % consensus acc for all problem it will have a dimension of Iter (not Nproblems)
+Y = cell(1, Nproblems); % moltiplicatori sub - problem
+Y_acc = cell(1, Nproblems); % moltiplicatori acc sub - problem
+Y_acc_all = cell(1, Nproblems); % moltiplicatori acc for all problem it will have a dimension of Iter (not Nproblems)
+gamma = cell(1, Nproblems); % gamma for all problem
+error = cell(1, Nproblems);
+Znext = cell(1, Nproblems);
+Ynext = cell(1, Nproblems);
+consensusChange_norm = cell(1, Nproblems);
+consensusChange = cell(1, Nproblems);
+consErr_norm = cell(1, Nproblems);
+consErr = cell(1, Nproblems);
+conv = cell(1, Nproblems);
+r_head = nan(1, Nproblems);
+r_tail = nan(1, Nproblems);
+s_head = nan(1, Nproblems);
+s_tail = nan(1, Nproblems);
+epsilon_error = cell(1, Nproblems);
+epsilon_z = cell(1, Nproblems);
+waiting_filename = cell(1, Nproblems);
+        
+%% Initialize consensus, multipliers and solutions and building tollerance array
+for i = 1:Nproblems
+    if i == 1 % no head 
+        epsilon_error{i} = error_factor*epsilon_array;
+        epsilon_z{i} = delta_z_factor*epsilon_array;
+        numConsElem = elemOverlap;
+    elseif i == Nproblems  % no tail
+        epsilon_error{i} = error_factor*epsilon_array;
+        epsilon_z{i} = delta_z_factor*epsilon_array;
+        numConsElem = elemOverlap;
+    else % head and tail
+        epsilon_error{i} = error_factor*[epsilon_array;epsilon_array];
+        epsilon_z{i} = delta_z_factor*[epsilon_array;epsilon_array];
+        numConsElem = 2*elemOverlap; 
+    end
+    Z{i} = zeros(numConsElem, 1);      % consensus parameters
+    X{i} = 0;                          % preallocate cells also for solutions (will be overwritten after iteration 0)
+    Y{i} = full(Z{i}.*0);              % consensus multipliers
+    conv{i} = 0;
+end
+Z00 = Z;
+Y00 = Y;
+% Initialize other quantities
+Zprevious = Z;
+Yprevious = Y;
+ADMM_iteration = 0;
+check_gamma = [];
+
+%% SUB-INSTANCES INITIALIZATION
+% Save data to share in share_data
+for i = 1:Nproblems
+    share_data{i}.split_manual = split_manual;
+    share_data{i}.alpha_subrange = alpha_subrange{i};
+    share_data{i}.alpha_vec = alpha_vec;
+    share_data{i}.ID = ID;
+    share_data{i}.id = id;
+    if isempty(init_subrange)
+        share_data{i}.init_subrange = [];
+    else
+        share_data{i}.init_subrange = init_subrange{i};
+    end
+    share_data{i}.e = e;
+    share_data{i}.o = o;
+    share_data{i}.d = d;
+    share_data{i}.vehicle_type = vehicle_type;
+    share_data{i}.homotopy = homotopy;
+    share_data{i}.IPOPT_opt = IPOPT_opt;
+end
+
+% Copy track, car, share_data, convergence, Z, Y, rho -> launch
+% sub-instances
+parfor i = 1:Nproblems
+    mkdir(sprintf('%s\\Temp\\SubInstance_%i', working_dir, i));
+    copyfile('Data\pista.mat',sprintf('Temp\\SubInstance_%i\\pista.mat', i));
+    copyfile(file_car,sprintf('Temp\\SubInstance_%i\\car.mat', i));
+    if split_manual
+        copyfile('Data\manual_index.mat',sprintf('Temp\\SubInstance_%i\\manual_index.mat', i));   
+    end
+    waiting_filename{i} = create_waiting_function(i);
+    write_convergence(i, convergence);
+    write_consensus(i, Z{i}, Y{i}, [RHO_head(i); RHO_tail(i)]);
+    write_share_data(i, share_data{i});
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%% HERE WE LAUNCH INSTANCES IN BATCH %%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    pause(i*1);
+    launch_sub_instance(i, working_dir);
+end
+
+%% Loop for waiting that all problems are built
+% recap: waiting status = 0 -> problems are working
+%        waiting status = 1 -> problems are completed, ADMM can gather
+%                              solutions
+waiting_status = 0;
+waiting = nan(Nproblems, 1);
+while ~waiting_status % loop until all subrpoblems are ready
+    
+    for i = 1: Nproblems
+        waiting(i) = readWaiting(waiting_filename{i});
+    end
+    
+    waiting_status = all(waiting);
+    pause(5);
+    % when all the problems turned to 1 (casadi problems built), ADMM can
+    % start the sub problems iterations
+end
+
+%% make the problems finally start
+for i = 1:Nproblems
+   change_waiting_status(i); % turning waiting to -> 0
+end
+pause(3);
+
+
+%% ADMM LOOP
+tic
+while ~convergence % test di convergenza del consenso
+    bool_out = [];
+    %%%%%%% consensus activation parameter is handled directly inside each 
+    %%%%%%% subproblem
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% need to wait the subproblems to complete
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% by reading the wating status file
+    % recap: waiting status = 0 -> problems are working
+    %        waiting status = 1 -> problems are completed, ADMM can gather
+    %                              solutions
+    waiting_status = 0;
+    waiting = nan(Nproblems, 1);
+    while ~waiting_status % loop until all subrpoblems are are ready
+        
+        for i = 1: Nproblems
+            wait = [];
+            counter = 0;
+            while isempty(wait)
+                wait = readWaiting(waiting_filename{i});
+                counter = counter+1;
+                if counter > 1
+                    disp('error reading waiting file... trying again')
+                    pause(1);
+                end
+            end
+            waiting(i) = wait;
+        end
+        
+        waiting_status = all(waiting);
+        pause(3);
+        
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%% LOAD SOLUTIONS
+    parfor kk = 1:Nproblems
+        
+         [solutions{kk}, solver_info{kk}] = readSolutions(kk);
+        
+        %reshape solution to delete collocation points
+        %%%%% assumption d is equal for every subproblem for now...%%%%
+        X{kk} = [];
+        X_origin{kk} = full(solutions{kk}.x);
+        X{kk} = reshape(X_origin{kk}(nx+1:end), [], length(alpha_subrange{kk})-1);
+        Xc{kk} = X{kk}(nu+nz+1:nu+nz+d*nx,:);                       % (nu+nz+1:nu+nz+problemData{kk}.d*nx,:)
+        X{kk} = [X{kk}(1:nu+nz,:);X{kk}(nu+nz+d*nx+1:end,:)];
+        X{kk} = X{kk}(:);
+        X{kk} = [X_origin{kk}(1:nx);X{kk}];
+        
+        
+        sol_struct{kk} = solutions{kk};
+        
+        if ADMM_iteration == ITER_start  %1
+            J0(kk) = full(solutions{kk}.f);
+        end        
+        
+    end
+    
+    solver_info_admm{ADMM_iteration+1} = solver_info;
+    
+    % aggiornamento dei parametri
+    for i = 1:Nproblems
+        
+        % aggiorno il consenso locale
+        if i == 1 % no head
+            
+            X_tail = X{i}((id.t{i}(1)-1)*(nx+nu+nz)+1:(id.t{i}(end)-1)*(nx+nu+nz)+nx);
+            X_head_next = X{i+1}((id.h{i+1}(1)-1)*(nx+nu+nz)+1:(id.h{i+1}(end)-1)*(nx+nu+nz)+nx);            
+            Y_tail = Y{i};
+            if Nproblems > 2
+                Y_head_next = Y{i+1}(1: length(Y{i+1})/2);
+            else
+                Y_head_next = Y{i+1};
+            end                
+            Ztail = update_dual_var(X_tail, X_head_next, RHO_tail(i), RHO_head(i+1), Y_tail, Y_head_next, 'method', 'Augmented-Lagrangian');
+            
+            X_overlap = X_tail;
+            error{i} = (X_overlap - Z{i});
+            
+            Z{i} = Ztail; %Z barra
+            Z_acc{i} = update_var_acc(Z{i}, Zprevious{i} , Z_acc_all, i, ADMM_iteration, 'method', update_method,'alfa', alfa_stationary); %Z accelerato
+            
+            Y{i} = Y{i} + RHO_tail(i).*(X_overlap - Z{i}); % Y barra
+            Y_acc{i} = update_var_acc(Y{i}, Yprevious{i} , Y_acc_all, i, ADMM_iteration, 'method', update_method,'alfa', alfa_stationary); %Y accelerato
+            
+            % aggiorno l'errore inteso come differenza della soluzione di
+            % sovrapposizione corrente dal consenso corrente
+            
+            if ADMM_iteration == ITER_start 
+                RHO_tail(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_tail; % error{i}
+            end
+            
+            if all(conv{i}) == false && ADMM_iteration > ITER_start 
+                RHO_tail(i) = updateRHO(RHO_tail(i), X_overlap, Z{i}, Zprevious{i}(end - elemOverlap + 1 : end),  Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
+            end
+            
+            % aggiorno i moltiplicatori locali
+
+            r_head(i) = 0;
+            r_tail(i) = vecnorm(error{i});
+            s_head(i) = 0;
+            s_tail(i) = vecnorm((Z{i} - Zprevious{i}));
+            
+        elseif i == Nproblems % no tail
+            
+            X_overlap = X{i}((id.h{i}(1)-1)*(nx+nu+nz)+1:(id.h{i}(end)-1)*(nx+nu+nz)+nx);   
+            error{i} = (X_overlap - Z{i});
+            
+            Z{i} = Ztail; % Z barra
+            Z_acc{i} = update_var_acc(Z{i}, Zprevious{i}, Z_acc_all, i, ADMM_iteration, 'method', update_method,'alfa', alfa_stationary); %Z accelerato
+            
+            Y{i} = Y{i} + RHO_head(i).*(X_overlap - Z{i});% Y barra
+            Y_acc{i} = update_var_acc(Y{i}, Yprevious{i} , Y_acc_all, i, ADMM_iteration, 'method', update_method,'alfa', alfa_stationary); %Y accelerato
+            
+            % aggiorno l'errore inteso come differenza della soluzione di
+            % sovrapposizione corrente dal consenso corrente
+            %error{i} = (X_overlap - Z{i});
+            
+            if ADMM_iteration == ITER_start 
+                RHO_head(i) = J0(i).*2./vecnorm(X_overlap - Zprevious{i}).^2/rho_scale_head;%/4   error{i}
+            end
+            
+            if all(conv{i}) == false && ADMM_iteration > ITER_start 
+                RHO_head(i) = updateRHO(RHO_head(i), X_overlap, Z{i}, Zprevious{i}(1:elemOverlap),  Y{i}(1:elemOverlap), ADMM_iteration);
+            end
+            
+            % aggiorno i moltiplicatori locali
+
+            
+            r_head(i) = vecnorm(error{i});
+            r_tail(i) = 0;
+            s_head(i) = vecnorm((Z{i} - Zprevious{i}));
+            s_tail(i) = 0;
+            
+        else % tail and head
+            
+            Zhead = Ztail; % share with the previous tail problem (Z_i-1)
+            
+            % update Z_i
+            X_tail = X{i}((id.t{i}(1)-1)*(nx+nu+nz)+1:(id.t{i}(end)-1)*(nx+nu+nz)+nx);
+            X_head_next = X{i+1}((id.h{i+1}(1)-1)*(nx+nu+nz)+1:(id.h{i+1}(end)-1)*(nx+nu+nz)+nx);   
+            Y_tail = Y{i}(length(Y{i})/2 + 1:end);
+            Y_head_next = Y{i+1}(1: elemOverlap);
+            Ztail = update_dual_var(X_tail, X_head_next, RHO_tail(i), RHO_head(i+1), Y_tail, Y_head_next, 'method', 'Augmented-Lagrangian');
+            
+            X_head = X{i}((id.h{i}(1)-1)*(nx+nu+nz)+1:(id.h{i}(end)-1)*(nx+nu+nz)+nx);   
+            X_overlap = [X_head; X_tail];            
+            error{i} = (X_overlap - Z{i});
+            
+            Z{i} = [Zhead; Ztail]; % Z barra
+            Z_acc{i} = update_var_acc(Z{i}, Zprevious{i} , Z_acc_all, i, ADMM_iteration, 'method', update_method,'alfa', alfa_stationary); %Z accelerato
+            
+            Y{i} = Y{i} + [RHO_head(i).*(X_head - Zhead); RHO_tail(i).*(X_tail - Ztail)]; %Y barra
+            Y_acc{i} = update_var_acc(Y{i}, Yprevious{i} , Y_acc_all, i, ADMM_iteration, 'method', update_method,'alfa', alfa_stationary); %Y accelerato
+            
+            
+            % aggiorno l'errore inteso come differenza della soluzione di
+            % sovrapposizione corrente dal consenso corrente
+            
+            if ADMM_iteration == ITER_start 
+                RHO_tail(i) = J0(i).*1./vecnorm(X_overlap(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)).^2/rho_scale_tail; % error{i}
+                RHO_head(i) = J0(i).*1./vecnorm(X_overlap(1:end/2) - Zprevious{i}(1:elemOverlap)).^2/rho_scale_head; % error{i}
+            end
+            
+            if all(conv{i}) == false && ADMM_iteration > ITER_start 
+                RHO_head(i) = updateRHO(RHO_head(i), X_head, Zhead, Zprevious{i}(1:elemOverlap), Y{i}(1:elemOverlap), ADMM_iteration);
+                RHO_tail(i) = updateRHO(RHO_tail(i), X_tail, Ztail, Zprevious{i}(end - elemOverlap + 1 : end), Y{i}(end - elemOverlap + 1 : end), ADMM_iteration);
+            end
+            
+            % aggiorno i moltiplicatori locali
+
+            r_head(i) = vecnorm(error{i}(1:end/2));
+            r_tail(i) = vecnorm(error{i}(end/2+1:end));
+            s_head(i) = vecnorm((Z{i}(1:end/2) - Zprevious{i}(1:elemOverlap)));
+            s_tail(i) = vecnorm((Z{i}(end/2+1:end) - Zprevious{i}(end - elemOverlap + 1 : end)));
+        end
+        
+    end
+    
+    % Memorizzo Z e Y accelerati
+    Z_acc_all{ADMM_iteration + 1} = Z_acc;
+    Y_acc_all{ADMM_iteration + 1} = Y_acc;
+    
+    % Aggiornamento del gamma
+    RHOx = mean([RHO_head;RHO_tail]);
+    gamma{ADMM_iteration + 1} = (1/RHOx)*vecnorm(vertcat(Y_acc{:})-vertcat(Yprevious{:}))^2 + RHOx*vecnorm(vertcat(Z_acc{:})-vertcat(Zprevious{:}))^2;
+    if ADMM_iteration < 1
+        gamma0 = 0;
+    else
+        gamma0 = gamma{1};
+    end
+    
+    % Condizione per aggiornamento Z e Y
+    if isequal(update_method, 'ADMM')
+        Znext = Z;
+        Ynext = Y;
+    else
+        if gamma{ADMM_iteration + 1} < gamma0*eta^(ADMM_iteration+1)
+            Znext = Z_acc;
+            Ynext = Y_acc;
+            check_gamma = [check_gamma; 1];
+        else
+            Znext = Z;
+            Ynext = Y;
+            check_gamma = [check_gamma; 0];
+            gamma{ADMM_iteration + 1} = (1/RHOx)*vecnorm(vertcat(Ynext{:})-vertcat(Yprevious{:}))^2 + RHOx*vecnorm(vertcat(Znext{:})-vertcat(Zprevious{:}))^2;
+        end
+    end
+
+    % To avoid new Z and Y after the preliminary optimization
+    if ADMM_iteration < ITER_start
+        Znext = Z00;
+        Ynext = Y00;
+    elseif ADMM_iteration == ITER_start 
+        Ynext = Y00;
+    end
+    
+    % Verifica convergenza
+    for i = 1:Nproblems
+        consensusChange_norm{i} = vecnorm((Znext{i} - Zprevious{i})); % norm of dual residual
+        consensusChange{i} = abs(Znext{i} - Zprevious{i}); % dual residual
+        consErr_norm{i} = vecnorm(error{i}); % norm of primal residual
+        consErr{i} = abs(error{i}); % primal residual
+        conv{i} = (consErr{i} < epsilon_error{i}) & (consensusChange{i} < epsilon_z{i});
+        bool_out = [bool_out; conv{i}];
+    end
+    
+    % test di convergenza
+    convergence = all(bool_out); % check if all are true
+    % output printing
+    ADMM_print(ADMM_iteration, Nproblems, consErr_norm, consensusChange_norm, RHO_head, RHO_tail, conv, solver_info);
+    
+
+    
+    % aggiorno il vettore dei consensi
+    Z_1 = Zprevious;
+    Zprevious = Znext;
+    Yprevious = Ynext;
+    Z = Znext;
+    Y = Ynext;
+    previousConsErr = consErr;
+    ADMM_iteration = ADMM_iteration + 1;
+    Xinter{ADMM_iteration} = X;
+    Zinter{ADMM_iteration} = Z;
+    
+    % writing data to subproblems
+    parfor i = 1:Nproblems
+        % maybe just 1 function to write all data togheder to a structure is enough ??
+        write_convergence(i, convergence);
+        write_consensus(i, Z{i}, Y{i}, [RHO_head(i); RHO_tail(i)]);
+        % when data is written just update the waiting status to launch the
+        % next subproblems iteration
+        pause(1);
+        change_waiting_status(i);
+    end
+    
+    % plots update
+    ADMM_plot_update; 
+
+end
+time_while = toc;
+%delete(gcp);
+
+%% post processing whole solution (plots)
+post_process;
+
+%% Save results
+problem_structure.Nproblems = Nproblems;
+problem_structure.Nsteps = Nsteps;
+problem_structure.alpha_end = alfa_end;
+problem_structure.alpha_vec = alpha_vec;
+problem_structure.alpha_subrange = alpha_subrange;
+problem_structure.o = o;
+problem_structure.e = e;
+
+
+mkdir(savepath);
+savefig(figADMM,[savepath, '\ADMM_plot'], 'compact');
+close(figADMM);
+save(sprintf('%s%s',savepath, '\X_sol.mat'), 'X_sol');
+save(sprintf('%s%s',savepath, '\U_sol.mat'), 'U_sol');
+save(sprintf('%s%s',savepath, '\Z_sol.mat'), 'Z_sol');
+save(sprintf('%s%s',savepath, '\Twist_sol.mat'), 'twist');
+save(sprintf('%s%s',savepath, '\opti_var_scaled.mat'), 'X');
+save(sprintf('%s%s',savepath, '\problem_structure.mat'), 'problem_structure');
+
+%% gif animation (not working)
+% gif_creator_script;
+
+return % comment return if you want to play the animation
+
+animation_script;

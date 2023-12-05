@@ -1,6 +1,6 @@
-function model = fnc_vehicleParameterSet(track, alfa_new, N, d, lap, J_Homotopy, options)
+function model = fnc_vehicleParameterSet(track, alfarange, N, d, lap, J_Homotopy, options)
     arguments
-        track; alfa_new; N; d; lap; J_Homotopy;
+        track; alfarange; N; d; lap; J_Homotopy;
         options.alpha_in = 0; options.alpha_end = 1; 
     end
 %
@@ -19,19 +19,20 @@ model.opt.d_colloc = d;
 model.opt.dpts = N;
 model.opt.lap = lap;
 model.opt.J_Homotopy = J_Homotopy;
-model.track.cntrlpts = track.n;
+%model.track.cntrlpts = track.n;
+model.track.alfa_grid = alfarange;
 %alfa-grid
-if ~isempty(alfa_new)
-    model.track.alfa_grid_lap = alfa_new;
-else
-    model.track.alfa_grid_lap = linspace(options.alpha_in, options.alpha_end, model.opt.dpts/lap+1);
-end
-
-if lap > 1
-    model.track.alfa_grid = [repmat(model.track.alfa_grid_lap(1:end-1),1,lap-1), model.track.alfa_grid_lap];
-else
-    model.track.alfa_grid = model.track.alfa_grid_lap;
-end
+% if ~isempty(alfa_new)
+%     model.track.alfa_grid_lap = alfa_new;
+% else
+%     model.track.alfa_grid_lap = linspace(options.alpha_in, options.alpha_end, model.opt.dpts/lap+1);
+% end
+% 
+% if lap > 1
+%     model.track.alfa_grid = [repmat(model.track.alfa_grid_lap(1:end-1),1,lap-1), model.track.alfa_grid_lap];
+% else
+%     model.track.alfa_grid = model.track.alfa_grid_lap;
+% end
 %track-quantities
 model.track.pos_grid = full(track.fun_pos(model.track.alfa_grid));
 model.track.ns_grid  = full(track.fun_vh(model.track.alfa_grid));
@@ -42,7 +43,7 @@ model.track.ts_grid = model.track.ts_grid./vecnorm(model.track.ts_grid);
 
 %psi-track
 if lap > 1
-    model.track.psi_grid_lap = atan_track(model.track.ts_grid(:,end - model.opt.dpts/lap  : end), 'clockwise');
+    model.track.psi_grid_lap = atan_track_diff(model.track.ts_grid(:,end - model.opt.dpts/lap  : end), 'clockwise');
     shift = model.track.psi_grid_lap(model.opt.dpts/lap) - model.track.psi_grid_lap(1);
     model.track.psi_grid = model.track.psi_grid_lap(1:model.opt.dpts/lap);
     for i = 1:lap-1
@@ -50,7 +51,7 @@ if lap > 1
     end
     model.track.psi_grid = [model.track.psi_grid, i*shift + model.track.psi_grid_lap(end)];
 else
-    model.track.psi_grid = atan_track(model.track.ts_grid, 'clockwise');
+    model.track.psi_grid = atan_track_diff(model.track.ts_grid, 'clockwise');
 end
 model.track.RVSG = cell(1,model.opt.dpts+1);
 for i = 1:model.opt.dpts+1

@@ -9,6 +9,10 @@ if ~car_check
 end
 % Nsteps = Nsteps + 1;
 
+X_scale = scale.x;
+U_scale = scale.u;
+Z_scale = scale.z;
+
 kk = 1;
 index0 = find(alpha_vec == 0);
 if lap > 1

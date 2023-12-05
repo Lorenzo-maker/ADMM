@@ -3,7 +3,10 @@ set(groot, 'defaultAxesTickLabelInterpreter','latex');
 set(groot, 'defaultLegendInterpreter','latex');
 set(0,'defaultTextInterpreter','latex');
 
-
+X_scale = car.data.X_scale;
+U_scale = car.data.U_scale;
+Z_scale = car.data.Z_scale;
+model = car;
 % Nsteps = Nsteps + 1;
 kk = 1;
 index0 = find(alpha_vec == 0);
