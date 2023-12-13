@@ -9,7 +9,7 @@ working_dir = pwd;
 
 %% path
 
-addpath(genpath('../Casadi'));
+addpath(genpath('../casadi_3_6_4'));
 addpath(genpath('Classes'));
 addpath(genpath('Track'));
 addpath(genpath('ADMM_functions'));
@@ -30,9 +30,7 @@ track_index = 2;
 warning off
 switch track_saved 
     case 1
-        warning('off','all')
         load('track_stored');
-        warning('on','all')
         track = track_stored{track_index};
     otherwise
         cntrlpts = 700; % Number of control points

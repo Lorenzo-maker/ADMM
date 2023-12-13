@@ -1,11 +1,11 @@
 %% Import package and add folders
 
-import casadi.*
 % all the paths added here should be enough to run the subproblem
 cd '../'
 cd '../'
 fprintf('\n\n %s\n\n\n', pwd)
-addpath(genpath('../../../Casadi'))
+%addpath(genpath('C:\Users\blore\OneDrive - University of Pisa\Unipi\PhD\casadi_3_6_0'))
+addpath(genpath('../casadi_3_6_4'))
 addpath(genpath('Classes'))
 addpath(genpath('Track'))
 addpath(sprintf('Temp\\SubInstance_%i', ID_instance));
@@ -16,8 +16,11 @@ addpath(genpath('scripts'));
 addpath(genpath('utils'));
 
 %% Create subproblems
+import casadi.*
  % load global settings
+warning off
 load(sprintf('Temp//SubInstance_%i//pista.mat',ID_instance))
+warning on
 
 
 %ADMM_batch_settings;

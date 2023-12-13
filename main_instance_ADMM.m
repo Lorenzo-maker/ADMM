@@ -9,9 +9,10 @@ savepath = 'Results\1500_4_81'; % for results path
 
 %% Path
 
-addpath(genpath('../Casadi'));
+%addpath(genpath('../Casadi'));
 addpath('communication_functions');
-addpath(genpath('Casadi'));
+%addpath(genpath('Casadi'));
+addpath(genpath('../casadi_3_6_4'));
 addpath(genpath('Classes'));
 addpath(genpath('Track'));
 addpath(genpath('ADMM_functions'));

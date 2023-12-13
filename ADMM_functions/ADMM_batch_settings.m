@@ -1,7 +1,7 @@
 %% admm settings
 % The settings written here are used by the ADMM instance and the sub
 % problems instances
-vehicle_type = 'Electric';
+vehicle_type = 'Multibody';
 addpath(genpath(strcat('Model_script/',vehicle_type)));
 model_info
 %addpath(genpath('Model_script/ABA'));
@@ -17,7 +17,7 @@ end
 %%%%%%%%%%%%%%%%%%%%% Sub-problem parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 lap = 1;            % number of lap
 Nproblems = 4*lap;  % number of subproblems per lap
-Nsteps = 1500*lap;  % TOTAL STEPS 
+Nsteps = 2000*lap;  % TOTAL STEPS 
 e = 30;             % if e > 0 it must be greater than o/2 % number of mesh interval for overlapping area
 o = 1;              % number of mesh interval for consensus (if o = 0 consensus only on states at interfaces)
 d = 2;              % number of collocation points 

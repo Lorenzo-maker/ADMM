@@ -1,8 +1,7 @@
 function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, id, ID, problem_number, init_subrange, alpha_vec, opts, car)
-    
-% in this version we overlap only one set of states at the head and the
-% tail (no controls, no algebraic variables)
-
+    import casadi.*
+    % in this version we overlap only one set of states at the head and the
+    % tail (no controls, no algebraic variables)
     %% Discretization
     pre = diff(alfarange);
     index = find(pre<0);
@@ -19,7 +18,6 @@ function [problema, numericalData, scale]  = sub_opti_map(alfarange, pista, o, i
     N = length(alfarange)-1;
     colloc_type = car.data.colloc_type;
     d = car.data.d; 
-    import casadi.*
     %% Unpack car data 
     nx = car.data.nx; nu = car.data.nu; nz = car.data.nz;
     X_lb = car.data.X_lb; X_ub = car.data.X_ub;

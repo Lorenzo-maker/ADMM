@@ -1,8 +1,9 @@
-function [Fx0_fun, Fy0_fun, Fx_tyre_fun, Fy_tyre_fun, Fxlim_fun, Fylim_fun, Gxa_fun, Gyk_fun] = MF_Tyre(tir, options)
+function [Fx0_fun, Fy0_fun, Fx_tyre_fun, Fy_tyre_fun, Fxlim_fun, Fylim_fun, Gxa_fun, Gyk_fun, mf_fun] = MF_Tyre(tir, options)
     arguments
         tir
         options.shift = 1;
         options.curvature = 1;
+        options.sym = 'SX';
     end
     curv = options.curvature;
     shift = options.shift;
@@ -11,6 +12,7 @@ function [Fx0_fun, Fy0_fun, Fx_tyre_fun, Fy_tyre_fun, Fxlim_fun, Fylim_fun, Gxa_
     Fz = SX.sym('Fz'); % tyre vertical load 
     dfz = (Fz - tir.FNOMIN)/tir.FNOMIN;
     gamma = SX.sym('gamma');
+    
     % Pag. 176/3-th edition
     % Longitudinal Force 
     % Vsx = Vx - omega*r (Vx = vel. centro ruota)
@@ -77,7 +79,8 @@ function [Fx0_fun, Fy0_fun, Fx_tyre_fun, Fy_tyre_fun, Fxlim_fun, Fylim_fun, Gxa_
     Gyk_fun = Function('Gyk_fun', {alpha, k, Fz, gamma}, {Gyk});
     Fy_tyre = Gyk*Fy0_fun(alpha, Fz, gamma) + Svyk;
     Fy_tyre_fun = Function('Fy_tyre', {alpha, k, Fz, gamma}, {Fy_tyre});
-    
+    mf_fun = casadi.Function('mf',{k,alpha,Fz,gamma},{Fx_tyre,Fy_tyre},struct('cse',true));
+
 
     
 end
